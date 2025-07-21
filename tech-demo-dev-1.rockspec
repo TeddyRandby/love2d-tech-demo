@@ -1,7 +1,7 @@
 package = "tech-demo"
 version = "dev-1"
 source = {
-   url = "*** please add URL for source tarball, zip or repository here ***"
+   url = "https://github.com/TeddyRandby/love2d-tech-demo"
 }
 description = {
    homepage = "*** please enter a project homepage ***",
