@@ -28,4 +28,12 @@ function love.keypressed(key, scancode, isrepeat)
   if key == '3' then
     Engine:play(Engine.hand[3])
   end
+
+  if key == '4' then
+    Engine:play(Engine.hand[4])
+  end
+
+  if key == '5' then
+    Engine:play(Engine.hand[5])
+  end
 end
