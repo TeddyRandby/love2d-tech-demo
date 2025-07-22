@@ -4,12 +4,30 @@ local M = {
 	Corruption = require("data.token.types")[3],
 }
 
+function M.radius()
+	return love.graphics.getWidth() / 30
+end
+
 function M.isMana(t)
 	return t.type == "mana"
 end
 
 function M.isMinion(t)
 	return t.type == "minion"
+end
+
+---@param token Token
+---@param x integer
+---@param y integer
+function M.draw(token, x, y)
+	local pd = 10
+	local r = M.radius()
+
+	love.graphics.setColor(0, 0.5, 0.5, 1)
+	love.graphics.circle("line", x, y, r)
+
+	love.graphics.setColor(1, 1, 1, 1)
+	love.graphics.printf(token.name, x - r + pd, y, r - pd)
 end
 
 return M

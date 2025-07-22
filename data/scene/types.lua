@@ -29,10 +29,16 @@ return {
 		layout = {
 			Components.bag(0, 100),
 			Components.hand(0, 500),
-    },
+		},
 	},
 	battling = {
 		name = "battling",
-		layout = {},
+		layout = {
+			Components.bag(0, 100),
+			Components.button("Draw", function()
+        Engine:round()
+      end, 200, 200, 50, 50),
+			Components.board(0, 500),
+		},
 	},
 }

@@ -7,8 +7,10 @@ local M = {
 }
 
 local Card = require("data.card")
+local Token = require("data.token")
 
 ---@alias RenderCommandButtonTarget { [1]: number, [2]: number, text: string }
+---@alias RenderCommandType "button" | "bag" | "card" | "token"
 
 ---@class RenderCommandButton
 ---@field type "button"
@@ -28,6 +30,12 @@ local Card = require("data.card")
 ---@field x integer
 ---@field y integer
 
+---@class RenderCommandToken
+---@field type "token"
+---@field target Token
+---@field x integer
+---@field y integer
+
 ---@class RenderCommandMeta
 ---@field contains fun(self: RenderCommand, x: integer, y: integer): boolean
 ---@field draggable fun(self: RenderCommand): boolean
@@ -35,7 +43,7 @@ local Card = require("data.card")
 ---@field drag? fun(x: integer, y: integer)
 ---@field click? fun(x: integer, y: integer)
 
----@alias RenderCommand RenderCommandCard | RenderCommandBag | RenderCommandMeta
+---@alias RenderCommand RenderCommandCard | RenderCommandToken | RenderCommandBag | RenderCommandMeta
 
 ---@param self RenderCommandBag
 ---@param x integer
@@ -62,6 +70,29 @@ local function card_contains(self, x, y)
 	return x > l and x < r and y > b and y < t
 end
 
+---@param self RenderCommandToken
+---@param x integer
+---@param y integer
+local function token_contains(self, x, y)
+	local tokenr = Token.radius()
+	local dx = math.abs(x - self.x)
+	local dy = math.abs(y - self.y)
+	-- if dx > tokenr then
+	-- 	return false
+	-- end
+	--
+	-- if dy > tokenr then
+	-- 	return false
+	-- end
+	--
+	-- if dx + dy <= tokenr then
+	-- 	return true
+	-- end
+
+	local contains =  (dx * dx + dy * dy) <= (tokenr * tokenr)
+  return contains
+end
+
 ---@class RenderableOptions
 ---@field drag? fun(x: integer, y: integer)
 ---@field click? fun(x: integer, y: integer)
@@ -76,7 +107,7 @@ local function clickable(self)
 	return self.click ~= nil
 end
 
----@param type "card" | "bag" | "button"
+---@param type RenderCommandType
 ---@param target unknown
 ---@param x integer
 ---@param y integer
@@ -102,6 +133,15 @@ end
 function M:card(card, x, y, opts)
 	-- Is there a better way to do this, with meta tables?
 	self:push_renderable("card", card, card_contains, x, y, opts)
+end
+
+---@param token Token
+---@param x integer
+---@param y integer
+---@param opts? RenderableOptions
+function M:token(token, x, y, opts)
+	-- Is there a better way to do this, with meta tables?
+	self:push_renderable("token", token, token_contains, x, y, opts)
 end
 
 ---@param bag Token[]
@@ -144,15 +184,21 @@ function M:draw()
 		local t = v.type
 
 		if t == "card" then
-			Card.draw(v.target, v.x, v.y)
+      ---@type Card
+      local card = v.target
+			Card.draw(card, v.x, v.y)
+		elseif t == "token" then
+      ---@type Token
+			local token = v.target
+			Token.draw(token, v.x, v.y)
 		elseif t == "button" then
-      ---@type RenderCommandButtonTarget
-      local target = v.target
+			---@type RenderCommandButtonTarget
+			local target = v.target
 			local x, y, w, h = v.x, v.y, target[1], target[2]
 			love.graphics.setColor(1, 0, 0, 1)
 			love.graphics.rectangle("fill", x, y, w, h)
 			love.graphics.setColor(1, 1, 1, 1)
-      love.graphics.printf(target.text, x + 5, y + 5, w)
+			love.graphics.printf(target.text, x + 5, y + 5, w)
 		elseif t == "bag" then
 			local x, y = v.x, v.y
 			local tw, th = 10, 30

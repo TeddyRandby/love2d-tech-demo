@@ -1,4 +1,4 @@
----@alias Draggable Card
+---@alias Draggable Card | Token
 
 ---@class Dragging
 ---@field ox integer
@@ -14,22 +14,29 @@
 ---@field CardTypes Card[]
 ---@field SceneTypes table<string, Scene>
 ---@field bag Token[]
+---@field field Token[]
+---@field exhausted Token[]
 ---@field hand Card[]
 ---@field dragging Dragging?
+---@field scene_data table<SceneType, table>
 local M = {
 	scene = "main",
 	scene_data = {},
 	hand = {},
-	pool = {},
 	bag = {},
+	field = {},
+	exhausted = {},
 	TokenTable = {},
 	CardTable = {},
 	SceneTypes = require("data.scene.types"),
 	TokenTypes = require("data.token.types"),
 	CardTypes = require("data.card.types"),
+
+	stats = { draw = 3 },
 }
 
 local Card = require("data.card")
+local Token = require("data.token")
 
 ---@param scene SceneType
 function M:transition(scene)
@@ -40,15 +47,15 @@ end
 ---@param val? unknown
 function M:component_data(component, val)
 	if val ~= nil then
-		self.scene_data[component.type][component] = val
+		self.scene_data[self.scene][component.type][component] = val
 	end
 
-	return self.scene_data[component.type][component]
+	return self.scene_data[self.scene][component.type][component]
 end
 
 ---@param component Component
 function M:reset_component_data(component)
-	self.scene_data[component.type][component] = nil
+	self.scene_data[self.scene][component.type][component] = nil
 end
 
 ---@param o Draggable
@@ -79,6 +86,10 @@ function M:is_dragging(o)
 	end
 end
 
+function M:round()
+	self:draw(self.stats.draw)
+end
+
 ---@param n integer
 ---@param tab? Card[]
 ---@return Card[]
@@ -88,6 +99,12 @@ end
 function M:fish(n, tab)
 	-- We copy each sampled element so that they are unique game objects.
 	return table.replacement_sample(self.CardTable, n, tab, table.copy)
+end
+
+---@param n integer
+--- Draw n tokens from the bag and move them into the playing field.
+function M:draw(n)
+	table.sample(self.bag, n, self.field, table.copy)
 end
 
 ---@param n integer
@@ -129,11 +146,23 @@ end
 function M:play(n)
 	assert(n <= #self.hand)
 	local card = table.remove(self.hand, n)
-	self:activate(card)
+	self:doplay(card)
+end
+
+---@param n integer
+function M:exhaust(n)
+	assert(n <= #self.field)
+	local token = table.remove(self.field, n)
+	self:doexhaust(token)
+end
+
+---@param token Token
+function M:doexhaust(token)
+	table.insert(self.exhausted, token)
 end
 
 ---@param card Card
-function M:activate(card)
+function M:doplay(card)
 	---@type Token[]
 
 	for _, op in ipairs(card.ops) do
@@ -246,7 +275,12 @@ function M:load()
 		end
 	end
 
-	self.scene_data.card_selector = {}
+	-- TODO: Do this automatically
+	self.scene_data.drafting = {}
+	self.scene_data.upgrading = {}
+	self.scene_data.battling = {}
+	self.scene_data.upgrading.card_selector = {}
+	self.scene_data.drafting.card_selector = {}
 
 	return self
 end
@@ -261,15 +295,20 @@ function M:update()
 		local t = component.type
 
 		if t == "hand" then
-			local cardw, cardh = Card.width(), Card.height()
+			local cardw = Card.width()
 			local x, y = component.x, component.y
 
 			for i, v in ipairs(self.hand) do
 				if self:is_dragging(v) then
 					local mousex, mousey = love.mouse.getPosition()
 					View:card(v, mousex - self.dragging.ox, mousey - self.dragging.oy, {
-            drag = function() self:play(i) end
-          })
+						drag = function()
+							self:play(i)
+							if #self.hand == 0 then
+								self:transition("battling")
+							end
+						end,
+					})
 				else
 					View:card(v, x, y, { drag = card_in_hand_on_drag })
 				end
@@ -281,6 +320,32 @@ function M:update()
 			assert(h ~= nil)
 
 			View:button(x, y, w, h, component.text, component.f)
+		elseif t == "board" then
+			local tokenr = Token.radius()
+			local tokenw = tokenr * 2
+
+			local x, y = component.x, component.y
+
+			x = x + Token.radius()
+			y = y + Token.radius()
+
+			for i, v in ipairs(self.field) do
+				if self:is_dragging(v) then
+					local mousex, mousey = love.mouse.getPosition()
+					View:token(v, mousex - self.dragging.ox, mousey - self.dragging.oy, { drag = function()
+            self:exhaust(i)
+          end })
+				else
+					View:token(v, x, y, { drag = card_in_hand_on_drag })
+				end
+				x = x + tokenw + 10
+			end
+
+			x = component.x + 400
+			for _, v in ipairs(self.exhausted) do
+				View:token(v, x, y)
+				x = x + tokenw + 10
+			end
 		elseif t == "card_selector" then
 			local component_data = self:component_data(component)
 
@@ -295,10 +360,10 @@ function M:update()
 					View:card(v, x, y, {
 						click = function()
 							self:reset_component_data(component)
-              table.insert(self.hand, v)
-              if #self.hand >= 5 then
-                self:transition("upgrading")
-              end
+							table.insert(self.hand, v)
+							if #self.hand >= 5 then
+								self:transition("upgrading")
+							end
 						end,
 					})
 

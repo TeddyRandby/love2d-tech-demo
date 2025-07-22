@@ -1,5 +1,7 @@
+---@alias ComponentType "bag" | "hand" | "button" | "card_selector" | "board"
+
 ---@class Component
----@field type "bag" | "hand" | "button" | "card_selector"
+---@field type ComponentType
 ---@field x number
 ---@field y number
 ---@field w? number
@@ -67,7 +69,15 @@ function M.card_selector(x, y, n)
   }
 end
 
-function M.choice()
+---@param x number
+---@param y number
+function M.board(x, y)
+  ---@type Component
+  return {
+    type = "board",
+    x = x,
+    y = y,
+  }
 end
 
 return M
