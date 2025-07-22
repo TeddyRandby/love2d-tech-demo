@@ -16,13 +16,26 @@ function love.update()
 end
 
 function love.mousepressed(x, y, button, istouch, presses)
-  if not Engine:is_dragging() then
-		local e = View:hover(x, y)
-    if e then
-      Engine:begin_drag(e.target, x - e.x, y - e.y)
+	local e = View:hover(x, y)
+
+	if not e then
+		return
+	end
+
+	if not Engine:is_dragging() then
+		if e:draggable() then
+      e.drag(x, y)
+			Engine:begin_drag(e.target, x - e.x, y - e.y)
+		end
+	else
+		if e:draggable() then
+      e.drag(x, y)
     end
-  else
-    Engine:end_drag()
+		Engine:end_drag()
+	end
+
+  if e:clickable() then
+    e.click(x, y)
   end
 end
 

@@ -6,53 +6,77 @@
 ---@field target Draggable
 
 ---@class Engine
+---@field scene "main" | "drafting" | "upgrading" | "battling" | "shopping"
 ---@field rng love.RandomGenerator
 ---@field TokenTable Token[]
 ---@field TokenTypes Token[]
 ---@field CardTable Card[]
 ---@field CardTypes Card[]
+---@field SceneTypes table<string, Scene>
 ---@field bag Token[]
 ---@field hand Card[]
 ---@field dragging Dragging?
 local M = {
-	dragging_target = nil,
+	scene = "main",
+	scene_data = {},
 	hand = {},
 	pool = {},
 	bag = {},
 	TokenTable = {},
 	CardTable = {},
+	SceneTypes = require("data.scene.types"),
 	TokenTypes = require("data.token.types"),
 	CardTypes = require("data.card.types"),
 }
 
 local Card = require("data.card")
 
+---@param scene SceneType
+function M:transition(scene)
+	self.scene = scene
+end
+
+---@param component Component
+---@param val? unknown
+function M:component_data(component, val)
+	if val ~= nil then
+		self.scene_data[component.type][component] = val
+	end
+
+	return self.scene_data[component.type][component]
+end
+
+---@param component Component
+function M:reset_component_data(component)
+	self.scene_data[component.type][component] = nil
+end
+
 ---@param o Draggable
 ---@param ox? integer
 ---@param oy? integer
 --- Begin dragging game object o, with offset ox and oy into the sprite.
 function M:begin_drag(o, ox, oy)
-  self.dragging = {
-    target = o,
-    ox = ox or 0,
-    oy = oy or 0,
-  }
+	self.dragging = {
+		target = o,
+		ox = ox or 0,
+		oy = oy or 0,
+	}
 end
 
 --- End dragging
 function M:end_drag()
-  assert(self.dragging ~= nil)
-  self.dragging = nil
+	assert(self.dragging ~= nil)
+	self.dragging = nil
 end
 
 ---@param o? Draggable
 ---@return boolean
 function M:is_dragging(o)
-  if o then
-    return self.dragging ~= nil and self.dragging.target == o
-  else
-    return self.dragging ~= nil
-  end
+	if o then
+		return self.dragging ~= nil and self.dragging.target == o
+	else
+		return self.dragging ~= nil
+	end
 end
 
 ---@param n integer
@@ -62,8 +86,8 @@ end
 --- for drawing tokens from your bag during combat, the word 'fish' is used instead.
 --- This is inspired by the french translations of 'draw a card' in other card games.
 function M:fish(n, tab)
-  -- We copy each sampled element so that they are unique game objects.
-  return table.replacement_sample(self.CardTable, n, tab, table.copy)
+	-- We copy each sampled element so that they are unique game objects.
+	return table.replacement_sample(self.CardTable, n, tab, table.copy)
 end
 
 ---@param n integer
@@ -193,7 +217,6 @@ function M:activate(card)
 					for _, v in ipairs(pop()) do
 						for i, b in ipairs(self.bag) do
 							if b.type == v.type then
-								print("\t DONATE " .. v.name)
 								table.remove(self.bag, i)
 								goto next
 							end
@@ -223,33 +246,75 @@ function M:load()
 		end
 	end
 
-  self:fish(5, self.hand)
-
-  for _, v in ipairs(self.hand) do
-    print(v)
-  end
+	self.scene_data.card_selector = {}
 
 	return self
 end
 
+local function card_in_hand_on_drag() end
+
 function M:update()
-	local cardw, cardh = Card.width(), Card.height()
-	local x, y = 0, love.graphics.getHeight() - cardh - 10
+	local scene = self.SceneTypes[self.scene]
+	assert(scene ~= nil)
 
-	for _, v in ipairs(self.hand) do
-		if self:is_dragging(v) then
-      local mousex, mousey = love.mouse.getPosition()
-			View:card(v, mousex - self.dragging.ox, mousey - self.dragging.oy)
+	for _, component in ipairs(scene.layout) do
+		local t = component.type
+
+		if t == "hand" then
+			local cardw, cardh = Card.width(), Card.height()
+			local x, y = component.x, component.y
+
+			for i, v in ipairs(self.hand) do
+				if self:is_dragging(v) then
+					local mousex, mousey = love.mouse.getPosition()
+					View:card(v, mousex - self.dragging.ox, mousey - self.dragging.oy, {
+            drag = function() self:play(i) end
+          })
+				else
+					View:card(v, x, y, { drag = card_in_hand_on_drag })
+				end
+				x = x + cardw + 10
+			end
+		elseif t == "button" then
+			local x, y, w, h = component.x, component.y, component.w, component.h
+			assert(w ~= nil)
+			assert(h ~= nil)
+
+			View:button(x, y, w, h, component.text, component.f)
+		elseif t == "card_selector" then
+			local component_data = self:component_data(component)
+
+			if component_data then
+				local x, y = component.x, component.y
+
+				---@type Card[]
+				local cards = component_data.cards
+				assert(cards ~= nil)
+
+				for _, v in ipairs(cards) do
+					View:card(v, x, y, {
+						click = function()
+							self:reset_component_data(component)
+              table.insert(self.hand, v)
+              if #self.hand >= 5 then
+                self:transition("upgrading")
+              end
+						end,
+					})
+
+					x = x + 10 + Card.width()
+				end
+			else
+				-- Will get drawn on the next frame
+				self:component_data(component, {
+					cards = self:fish(component.amount),
+				})
+			end
+		elseif t == "bag" then
+			View:bag(self.bag, 10, 10)
 		else
-			View:card(v, x, y)
+			assert(false, "Unhandled component " .. t)
 		end
-		x = x + cardw + 10
-	end
-end
-
-function M:draw()
-	for i, v in ipairs(self.bag) do
-		love.graphics.print(v.name, 100, 20 * i)
 	end
 end
 

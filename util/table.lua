@@ -63,6 +63,22 @@ function table.map(t, f)
 	return tmp
 end
 
+---@generic T
+---@param f fun(in: T): boolean
+---@param t T[]
+---@return T[]
+function table.filter(t, f)
+	local tmp = {}
+
+	for _, v in ipairs(t) do
+    if f(v) then
+      table.insert(tmp, v)
+    end
+	end
+
+	return tmp
+end
+
 ---@generic T: table
 ---@param t T
 ---@return T
@@ -73,7 +89,12 @@ function table.copy(t)
 		tmp[k] = v
 	end
 
-	print("Copied " .. tostring(t) .. " to " .. tostring(tmp))
-
 	return tmp
+end
+
+---@generic T
+---@param t T[]
+---@return T?
+function table.pop(t)
+  return table.remove(t, #t)
 end
