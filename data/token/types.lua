@@ -1,6 +1,7 @@
+---@alias TokenType "coin" | "mana" | "corruption" | "ooze" | "elemental" | "imp" | "customer" | "parrot" | "skeleton"
+
 ---@class Token
----@field type string
----@field name string
+---@field type TokenType
 ---@field freq integer
 ---@field color number[]
 
@@ -8,55 +9,46 @@
 return {
   {
     type = "coin",
-    name = "coin",
     freq = 1,
     color = { 1, 1, 0, 1 }
   },
   {
     type = "mana",
-    name = "mana",
     freq = 2,
     color = { 0, 0, 1, 1 }
   },
   {
     type = "corruption",
-    name = "corruption",
     freq = 1,
     color = { 1, 0, 1, 1 }
   },
   {
-    type = "minion",
-    name = "ooze",
+    type = "ooze",
     freq = 1,
     color = { 0, 1, 0, 1 }
   },
   {
-    type = "minion",
-    name = "elemental",
+    type = "elemental",
     freq = 1,
     color = { 1, 0, 0, 1 }
   },
   {
-    type = "minion",
-    name = "customer",
+    type = "customer",
     freq = 1,
     color = { .5, .5, .5, 1 }
   },
   {
-    type = "minion",
-    name = "imp",
+    type = "imp",
     freq = 1,
     color = { .5, 0, .5, 1 }
   },
   {
-    type = "minion",
-    name = "skeleton",
+    type = "skeleton",
     freq = 1,
     color = { 0, 0, 0, 1 }
   },
   {
-    type = "minion",
-    name = "pirate",
+    type = "parrot",
     freq = 1,
     color = { 0, 1, 1, 1 }
   },

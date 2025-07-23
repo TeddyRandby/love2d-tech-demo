@@ -1,4 +1,4 @@
----@alias SceneType "main" | "drafting" | "upgrading" | "battling"
+---@alias SceneType "main" | "drafting" | "upgrading" | "battling" | "choosing" | "gameover"
 
 ---@class Scene
 ---@field name SceneType
@@ -16,6 +16,14 @@ return {
 			end, 200, 200, 50, 50),
 		},
 	},
+	gameover = {
+		name = "gameover",
+		layout = {
+			Components.button("Play", function()
+				Engine:transition("drafting")
+			end, 200, 200, 50, 50),
+		},
+	},
 	drafting = {
 		name = "drafting",
 		layout = {
@@ -24,11 +32,26 @@ return {
 			Components.hand(0, 500),
 		},
 	},
+	choosing = {
+		name = "choosing",
+		layout = {
+			Components.bag(0, 100),
+			Components.token_selector(200, 200, 6),
+			Components.hand(0, 500),
+		},
+	},
 	upgrading = {
 		name = "upgrading",
 		layout = {
 			Components.bag(0, 100),
 			Components.hand(0, 500),
+			function()
+				if #Engine.hand == 0 then
+					Components.button("play", function()
+						Engine:transition("battling")
+					end, 200, 200, 50, 50)()
+				end
+			end,
 		},
 	},
 	battling = {
@@ -36,8 +59,8 @@ return {
 		layout = {
 			Components.bag(0, 100),
 			Components.button("Draw", function()
-        Engine:round()
-      end, 200, 200, 50, 50),
+				Engine:round()
+			end, 200, 200, 50, 50),
 			Components.board(0, 500),
 		},
 	},

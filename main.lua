@@ -31,6 +31,7 @@ function love.mousepressed(x, y, button, istouch, presses)
 		if e:draggable() then
       e.drag(x, y)
     end
+
 		Engine:end_drag()
 	end
 

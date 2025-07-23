@@ -12,8 +12,9 @@ function M.isMana(t)
 	return t.type == "mana"
 end
 
-function M.isMinion(t)
-	return t.type == "minion"
+function M.isMinion(token)
+	local t = token.type
+	return not (t == "coin" or t == "corruption" or t == "mana")
 end
 
 ---@param token Token
@@ -27,7 +28,7 @@ function M.draw(token, x, y)
 	love.graphics.circle("line", x, y, r)
 
 	love.graphics.setColor(1, 1, 1, 1)
-	love.graphics.printf(token.name, x - r + pd, y, r - pd)
+	love.graphics.printf(token.type, x - r + pd, y, r - pd)
 end
 
 return M

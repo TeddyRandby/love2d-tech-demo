@@ -6,7 +6,7 @@
 ---@field target Draggable
 
 ---@class Engine
----@field scene "main" | "drafting" | "upgrading" | "battling" | "shopping"
+---@field scene SceneType
 ---@field rng love.RandomGenerator
 ---@field TokenTable Token[]
 ---@field TokenTypes Token[]
@@ -18,44 +18,62 @@
 ---@field exhausted Token[]
 ---@field hand Card[]
 ---@field dragging Dragging?
----@field scene_data table<SceneType, table>
+---@field player_stats Stats
+---@field enemy Enemy?
+---@field play_token_stack Token[][]
+---@field play_token_microops ActionMicroOp[]
 local M = {
 	scene = "main",
-	scene_data = {},
 	hand = {},
 	bag = {},
 	field = {},
 	exhausted = {},
+
 	TokenTable = {},
 	CardTable = {},
+	EnemyTable = {},
+
 	SceneTypes = require("data.scene.types"),
 	TokenTypes = require("data.token.types"),
 	CardTypes = require("data.card.types"),
+	EnemyTypes = require("data.enemies.types"),
 
-	stats = { draw = 3 },
+	enemy = nil,
+	player_stats = { draw = 3 },
+
+	play_token_stack = {},
+	play_token_microops = {},
 }
 
-local Card = require("data.card")
-local Token = require("data.token")
+function M:top()
+	---@type Token[]
+	return self.play_token_stack[#self.play_token_stack]
+end
+
+function M:pop()
+	---@type Token[]
+	return table.remove(self.play_token_stack, #self.play_token_stack)
+end
+
+---@param e Token[]
+function M:push(e)
+	table.insert(self.play_token_stack, e)
+end
 
 ---@param scene SceneType
 function M:transition(scene)
 	self.scene = scene
-end
 
----@param component Component
----@param val? unknown
-function M:component_data(component, val)
-	if val ~= nil then
-		self.scene_data[self.scene][component.type][component] = val
+	if scene == "upgrading" then
+    -- This will complete any pending micro-ops.
+    -- As we may have yielded in the middle of playing a card
+    -- (For example, to choose a token as an effect of playing a card)
+		self:doplay()
+  elseif scene == "gameover" then
+    self.bag = {}
+    self.field = {}
+    self.exhausted = {}
 	end
-
-	return self.scene_data[self.scene][component.type][component]
-end
-
----@param component Component
-function M:reset_component_data(component)
-	self.scene_data[self.scene][component.type][component] = nil
 end
 
 ---@param o Draggable
@@ -87,7 +105,7 @@ function M:is_dragging(o)
 end
 
 function M:round()
-	self:draw(self.stats.draw)
+	self:draw(self.player_stats.draw)
 end
 
 ---@param n integer
@@ -104,7 +122,17 @@ end
 ---@param n integer
 --- Draw n tokens from the bag and move them into the playing field.
 function M:draw(n)
+  if #self.bag < n then
+    return Engine:transition "gameover"
+  end
+
 	table.sample(self.bag, n, self.field, table.copy)
+end
+
+--- Sample a random enemy
+function M:encounter()
+	local enemy = table.unpack(table.replacement_sample(self.EnemyTable, 1))
+	self.enemy = enemy
 end
 
 ---@param n integer
@@ -114,7 +142,6 @@ function M:pull_into(n, tab)
 	return table.replacement_sample(self.TokenTable, n, tab)
 end
 
--- TODO: Fix this to not repeat.
 ---@param n integer
 ---@param tab? Token[]
 ---@return Token[]
@@ -122,7 +149,7 @@ function M:peek_into(n, tab)
 	return table.sample(self.bag, n, tab)
 end
 
----@param n integer
+--@param n integer
 ---@return Token[]
 function M:pull(n)
 	return self:pull_into(n)
@@ -143,13 +170,6 @@ function M:draft(ts)
 end
 
 ---@param n integer
-function M:play(n)
-	assert(n <= #self.hand)
-	local card = table.remove(self.hand, n)
-	self:doplay(card)
-end
-
----@param n integer
 function M:exhaust(n)
 	assert(n <= #self.field)
 	local token = table.remove(self.field, n)
@@ -161,103 +181,96 @@ function M:doexhaust(token)
 	table.insert(self.exhausted, token)
 end
 
----@param card Card
-function M:doplay(card)
-	---@type Token[]
+---@param n integer
+function M:play(n)
+	assert(n <= #self.hand)
 
-	for _, op in ipairs(card.ops) do
-		---@type Token[][]
-		local ts = { {} }
+	---@type Card
+	local card = table.remove(self.hand, n)
 
-		local function peek()
-			---@type Token[]
-			return ts[#ts]
-		end
+	assert(#self.play_token_stack == 0)
+	-- Push an empty table onto the play stack for each card operation we intend to do.
+	for _ = 1, #card.ops do
+		self:push({})
+	end
 
-		local function pop()
-			---@type Token[]
-			return table.remove(ts, #ts)
-		end
+	self.play_token_microops = table.flatmap(card.ops, function(c)
+		return c.microops
+	end)
 
-		---@param e Token[]
-		local function push(e)
-			table.insert(ts, e)
-		end
+	-- Now we can play
+	self:doplay()
+end
 
-		for _, potential_microop in ipairs(op.microops) do
-			---@type ActionMicroOp[]
-			local final_microops = { potential_microop }
+function M:doplay()
+	if table.isempty(self.play_token_microops) then
+		return
+	end
 
-			for _, microop in ipairs(final_microops) do
-				local t = microop.type
+	repeat
+		local microop = table.shift(self.play_token_microops)
+		assert(microop ~= nil)
 
-				print("[MICROOP] " .. t)
+		local t = microop.type
 
-				if t == "pull" then
-					self:pull_into(microop.amount, peek())
-				elseif t == "peek" then
-					self:peek_into(microop.amount, peek())
-				elseif t == "constant" then
-					for _ = 1, microop.amount do
-						table.insert(peek(), microop.token)
-					end
-				elseif t == "filter" then
-					local tmp = {}
+		print("[MICROOP] " .. t)
 
-					for _, v in ipairs(pop()) do
-						if microop.fun(v) then
-							table.insert(tmp, v)
-						end
-					end
+		if t == "pull" then
+			self:pull_into(microop.amount, self:top())
+		elseif t == "peek" then
+			self:peek_into(microop.amount, self:top())
+		elseif t == "constant" then
+			for _ = 1, microop.amount do
+				table.insert(self:top(), microop.token)
+			end
+		elseif t == "filter" then
+			local tmp = {}
 
-					push(tmp)
-				elseif t == "choose" then
-					-- TODO: USE UI, DON"T CHOOSE AT RANDOM
-					local not_chosen, chosen = pop(), {}
-
-					for _ = 1, microop.amount do
-						if #not_chosen then
-							local idx = self.rng:random(1, #not_chosen)
-							table.insert(chosen, table.remove(not_chosen, idx))
-						end
-					end
-
-					push(chosen)
-					push(not_chosen)
-				elseif t == "draft" then
-					self:draft(pop())
-				elseif t == "discard" then
-					-- TODO: Terrible solution!
-					-- Store source on token somewhere.
-					for _, v in ipairs(pop()) do
-						for i, b in ipairs(self.bag) do
-							if b.type == v.type then
-								print("\t DISCARD " .. v.name)
-								table.remove(self.bag, i)
-								goto next
-							end
-						end
-						::next::
-					end
-				elseif t == "donate" then
-					-- TODO: Terrible solution!
-					-- Store source on token somewhere.
-					-- Give away token somehow!
-					for _, v in ipairs(pop()) do
-						for i, b in ipairs(self.bag) do
-							if b.type == v.type then
-								table.remove(self.bag, i)
-								goto next
-							end
-						end
-						::next::
-					end
-				else
-					assert(false, "Unhandled micro op type")
+			for _, v in ipairs(self:pop()) do
+				if microop.fun(v) then
+					table.insert(tmp, v)
 				end
 			end
+
+			self:push(tmp)
+		elseif t == "choose" then
+			self:transition("choosing")
+			return
+		-- local not_chosen, chosen = self:pop(), {}
+		--
+		-- self:push(chosen)
+		-- self:push(not_chosen)
+		elseif t == "draft" then
+			self:draft(self:pop())
+		elseif t == "discard" then
+			-- TODO: Terrible solution!
+			-- Store source on token somewhere.
+			for _, v in ipairs(self:pop()) do
+				for i, b in ipairs(self.bag) do
+					if b.type == v.type then
+						table.remove(self.bag, i)
+						goto next
+					end
+				end
+				::next::
+			end
+		elseif t == "donate" then
+			-- TODO: Terrible solution!
+			-- Store source on token somewhere.
+			-- Give away token somehow!
+			for _, v in ipairs(self:pop()) do
+				for i, b in ipairs(self.bag) do
+					if b.type == v.type then
+						table.remove(self.bag, i)
+						goto next
+					end
+				end
+				::next::
+			end
+		else
+			assert(false, "Unhandled micro op type")
 		end
-	end
+	until table.isempty(self.play_token_microops)
 end
 
 function M:load()
@@ -275,111 +288,21 @@ function M:load()
 		end
 	end
 
-	-- TODO: Do this automatically
-	self.scene_data.drafting = {}
-	self.scene_data.upgrading = {}
-	self.scene_data.battling = {}
-	self.scene_data.upgrading.card_selector = {}
-	self.scene_data.drafting.card_selector = {}
+	for _, v in ipairs(self.EnemyTypes) do
+		for _ = 1, 1 do
+			table.insert(self.EnemyTable, v)
+		end
+	end
 
 	return self
 end
-
-local function card_in_hand_on_drag() end
 
 function M:update()
 	local scene = self.SceneTypes[self.scene]
 	assert(scene ~= nil)
 
 	for _, component in ipairs(scene.layout) do
-		local t = component.type
-
-		if t == "hand" then
-			local cardw = Card.width()
-			local x, y = component.x, component.y
-
-			for i, v in ipairs(self.hand) do
-				if self:is_dragging(v) then
-					local mousex, mousey = love.mouse.getPosition()
-					View:card(v, mousex - self.dragging.ox, mousey - self.dragging.oy, {
-						drag = function()
-							self:play(i)
-							if #self.hand == 0 then
-								self:transition("battling")
-							end
-						end,
-					})
-				else
-					View:card(v, x, y, { drag = card_in_hand_on_drag })
-				end
-				x = x + cardw + 10
-			end
-		elseif t == "button" then
-			local x, y, w, h = component.x, component.y, component.w, component.h
-			assert(w ~= nil)
-			assert(h ~= nil)
-
-			View:button(x, y, w, h, component.text, component.f)
-		elseif t == "board" then
-			local tokenr = Token.radius()
-			local tokenw = tokenr * 2
-
-			local x, y = component.x, component.y
-
-			x = x + Token.radius()
-			y = y + Token.radius()
-
-			for i, v in ipairs(self.field) do
-				if self:is_dragging(v) then
-					local mousex, mousey = love.mouse.getPosition()
-					View:token(v, mousex - self.dragging.ox, mousey - self.dragging.oy, { drag = function()
-            self:exhaust(i)
-          end })
-				else
-					View:token(v, x, y, { drag = card_in_hand_on_drag })
-				end
-				x = x + tokenw + 10
-			end
-
-			x = component.x + 400
-			for _, v in ipairs(self.exhausted) do
-				View:token(v, x, y)
-				x = x + tokenw + 10
-			end
-		elseif t == "card_selector" then
-			local component_data = self:component_data(component)
-
-			if component_data then
-				local x, y = component.x, component.y
-
-				---@type Card[]
-				local cards = component_data.cards
-				assert(cards ~= nil)
-
-				for _, v in ipairs(cards) do
-					View:card(v, x, y, {
-						click = function()
-							self:reset_component_data(component)
-							table.insert(self.hand, v)
-							if #self.hand >= 5 then
-								self:transition("upgrading")
-							end
-						end,
-					})
-
-					x = x + 10 + Card.width()
-				end
-			else
-				-- Will get drawn on the next frame
-				self:component_data(component, {
-					cards = self:fish(component.amount),
-				})
-			end
-		elseif t == "bag" then
-			View:bag(self.bag, 10, 10)
-		else
-			assert(false, "Unhandled component " .. t)
-		end
+		component()
 	end
 end
 

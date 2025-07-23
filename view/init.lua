@@ -204,9 +204,6 @@ function M:draw()
 			local tw, th = 10, 30
 			-- Silly way of doing this. Since tokens arent game objects,
 			-- we can track them smartly in the bag.
-			table.sort(v.target, function(l, r)
-				return l.type < r.type
-			end)
 			for _, token in ipairs(v.target) do
 				love.graphics.setColor(table.unpack(token.color))
 				love.graphics.rectangle("fill", x, y, tw, th)

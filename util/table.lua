@@ -76,6 +76,23 @@ function table.map(t, f)
 end
 
 ---@generic T
+---@generic X
+---@param f fun(in: T): X[]
+---@param t T[]
+---@return X[]
+function table.flatmap(t, f)
+	local tmp = {}
+
+	for _, x in ipairs(t) do
+    for _, v in ipairs(f(x)) do
+      table.insert(tmp, v)
+    end
+	end
+
+	return tmp
+end
+
+---@generic T
 ---@param f fun(in: T): boolean
 ---@param t T[]
 ---@return T[]
@@ -109,4 +126,46 @@ end
 ---@return T?
 function table.pop(t)
 	return table.remove(t, #t)
+end
+
+---@generic T
+---@param t T[]
+---@return T?
+function table.shift(t)
+	return table.remove(t, 1)
+end
+
+---@generic T
+---@param t T[]
+---@return boolean
+function table.isempty(t)
+  return #t == 0
+end
+
+---@generic K
+---@generic V
+---@param t table<K, V>
+---@return K[]
+function table.keys(t)
+  local tmp = {}
+
+  for k in pairs(t) do
+    table.insert(k)
+  end
+
+  return tmp
+end
+
+---@generic K
+---@generic V
+---@param t table<K, V>
+---@return V[]
+function table.vals(t)
+  local tmp = {}
+
+  for _, v in pairs(t) do
+    table.insert(v)
+  end
+
+  return tmp
 end
