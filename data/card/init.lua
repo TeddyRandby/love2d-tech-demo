@@ -36,7 +36,7 @@ function M.draw(card, x, y)
 	love.graphics.rectangle("fill", x, y, w, h)
 
 	love.graphics.setColor(1, 1, 1, 1)
-	love.graphics.printf(card.name, x + pd, y + pd, w - pd)
+	love.graphics.printf(card.type, x + pd, y + pd, w - pd)
 	love.graphics.printf(M.describe(card), x + pd, y + (h / 2), w - pd, "justify")
 end
 

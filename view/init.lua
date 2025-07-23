@@ -51,6 +51,32 @@ local Token = require("data.token")
 
 ---@alias RenderCommand RenderCommandText | RenderCommandCard | RenderCommandToken | RenderCommandBag | RenderCommandMeta
 
+---@param n number
+---@param max integer
+---@return integer
+local function normalize_dim(n, max)
+	if n > 1 then
+		return n
+	end
+
+	if n >= 0 then
+		return math.floor(n * max)
+	end
+
+  if n < -1 then
+    return max + n
+  end
+
+  return max * (1 + n)
+end
+
+---@param x number
+---@param y number
+---@return integer, integer
+local function normalize_xy(x, y)
+	return normalize_dim(x, love.graphics.getWidth()), normalize_dim(y, love.graphics.getHeight())
+end
+
 local function rect_collision(x, y, rx, ry, rw, rh)
 	local l, r, b, t = rx, rx + rw, ry, ry + rh
 	return x > l and x < r and y > b and y < t
@@ -68,8 +94,8 @@ end
 ---@param x integer
 ---@param y integer
 local function text_contains(self, x, y)
-  local h = love.graphics.getFont():getHeight()
-  local w = love.graphics.getFont():getWidth(self.target)
+	local h = love.graphics.getFont():getHeight()
+	local w = love.graphics.getFont():getWidth(self.target)
 	return rect_collision(x, y, self.x, self.y, w, h)
 end
 
@@ -212,27 +238,30 @@ function M:draw()
 		if t == "card" then
 			---@type Card
 			local card = v.target
-			Card.draw(card, v.x, v.y)
+			local x, y = normalize_xy(v.x, v.y)
+			Card.draw(card, x, y)
 		elseif t == "token" then
 			---@type Token
 			local token = v.target
-			Token.draw(token, v.x, v.y)
+			local x, y = normalize_xy(v.x, v.y)
+			Token.draw(token, x, y)
 		elseif t == "text" then
 			---@type string
 			local text = v.target
-			local x, y = v.x, v.y
+			local x, y = normalize_xy(v.x, v.y)
 			love.graphics.setColor(1, 1, 1, 1)
 			love.graphics.print(text, x, y)
 		elseif t == "button" then
 			---@type RenderCommandButtonTarget
 			local target = v.target
-			local x, y, w, h = v.x, v.y, target[1], target[2]
+			local x, y = normalize_xy(v.x, v.y)
+			local w, h = target[1], target[2]
 			love.graphics.setColor(1, 0, 0, 1)
 			love.graphics.rectangle("fill", x, y, w, h)
 			love.graphics.setColor(1, 1, 1, 1)
 			love.graphics.printf(target.text, x + 5, y + 5, w)
 		elseif t == "bag" then
-			local x, y = v.x, v.y
+			local x, y = normalize_xy(v.x, v.y)
 			local tw, th = 10, 30
 			-- Silly way of doing this. Since tokens arent game objects,
 			-- we can track them smartly in the bag.

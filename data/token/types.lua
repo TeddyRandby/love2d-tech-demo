@@ -1,4 +1,4 @@
----@alias TokenType "coin" | "mana" | "corruption" | "ooze" | "elemental" | "imp" | "customer" | "parrot" | "skeleton"
+---@alias TokenType "coin" | "mana" | "corruption" | "bomb" | "ooze" | "elemental" | "imp" | "customer" | "parrot" | "skeleton"
 
 ---@class Token
 ---@field type TokenType
@@ -11,6 +11,11 @@ return {
     type = "coin",
     freq = 1,
     color = { 1, 1, 0, 1 }
+  },
+  {
+    type = "bomb",
+    freq = 1,
+    color = { 1, 1, 1, 1 }
   },
   {
     type = "mana",

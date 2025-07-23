@@ -5,6 +5,8 @@
 ---@field oy integer
 ---@field target Draggable
 
+local Gameplay = require("engine.gameplay")
+
 ---@class Engine
 ---@field scene SceneType
 ---@field rng love.RandomGenerator
@@ -13,21 +15,11 @@
 ---@field CardTable Card[]
 ---@field CardTypes Card[]
 ---@field SceneTypes table<string, Scene>
----@field bag Token[]
----@field field Token[]
----@field exhausted Token[]
----@field hand Card[]
 ---@field dragging Dragging?
----@field player_stats Stats
----@field enemy Enemy?
----@field play_token_stack Token[][]
----@field play_token_microops ActionMicroOp[]
+---@field player GameplayData
+---@field enemy GameplayData?
 local M = {
 	scene = "main",
-	hand = {},
-	bag = {},
-	field = {},
-	exhausted = {},
 
 	TokenTable = {},
 	CardTable = {},
@@ -38,43 +30,26 @@ local M = {
 	CardTypes = require("data.card.types"),
 	EnemyTypes = require("data.enemies.types"),
 
+	player = Gameplay.player({ draw = 3, lives = 3 }),
 	enemy = nil,
-	player_stats = { draw = 3 },
-
-	play_token_stack = {},
-	play_token_microops = {},
 }
-
-function M:top()
-	---@type Token[]
-	return self.play_token_stack[#self.play_token_stack]
-end
-
-function M:pop()
-	---@type Token[]
-	return table.remove(self.play_token_stack, #self.play_token_stack)
-end
-
----@param e Token[]
-function M:push(e)
-	table.insert(self.play_token_stack, e)
-end
 
 ---@param scene SceneType
 function M:transition(scene)
 	self.scene = scene
 
-	if scene == "upgrading" then
-    -- This will complete any pending micro-ops.
-    -- As we may have yielded in the middle of playing a card
-    -- (For example, to choose a token as an effect of playing a card)
-		self:__play()
-  elseif scene == "gameover" then
-    self.bag = {}
-    self.field = {}
-    self.exhausted = {}
-  elseif scene == "battling" then
-    self:encounter()
+	if scene == "drafting" then
+		self:encounter()
+	elseif scene == "upgrading" then
+		-- This will complete any pending micro-ops.
+		-- As we may have yielded in the middle of playing a card
+		-- (For example, to choose a token as an effect of playing a card)
+		self.player:__play()
+    self.enemy:__play()
+	elseif scene == "gameover" then
+		self.player.token_list = {}
+		self.player.token_states = {}
+	elseif scene == "battling" then
 	end
 end
 
@@ -90,7 +65,6 @@ function M:begin_drag(o, ox, oy)
 	}
 end
 
---- End dragging
 function M:end_drag()
 	assert(self.dragging ~= nil)
 	self.dragging = nil
@@ -106,8 +80,57 @@ function M:is_dragging(o)
 	end
 end
 
-function M:round()
-	self:draw(self.player_stats.draw)
+function M:begin_round()
+	if self.player:isempty() then
+		self.player:hit()
+	end
+
+	if self.enemy:isempty() then
+		self.enemy:hit()
+	end
+
+	self.player:draw()
+	self.enemy:draw()
+	--self.enemy.behaviors()
+end
+
+function M:end_round()
+	if self.player.power > self.enemy.power then
+		self.enemy:hit()
+	elseif self.player.power < self.enemy.power then
+		self.player:hit()
+	end
+
+	self.enemy.power = 0
+	self.player.power = 0
+
+	if self.player.lives <= 0 then
+		return Engine:transition("gameover")
+	end
+
+	if self.enemy.lives <= 0 then
+		self.player:reset_bag()
+
+		for _, v in ipairs(Engine.player.token_list) do
+			assert(Engine.player.token_states[v] == "bag", v.type .. " was not in bag")
+		end
+
+		return Engine:transition("drafting")
+	end
+end
+
+---@param n integer
+---@return Token[]
+function M:pull(n)
+	return self:pull_into(n)
+end
+
+---@param n integer
+---@param tab? Token[]
+---@return Token[]
+function M:pull_into(n, tab)
+	-- Copy each sampled token so that they are unique game objects.
+	return table.replacement_sample(self.TokenTable, n, tab, table.copy)
 end
 
 ---@param n integer
@@ -121,157 +144,11 @@ function M:fish(n, tab)
 	return table.replacement_sample(self.CardTable, n, tab, table.copy)
 end
 
----@param n integer
---- Draw n tokens from the bag and move them into the playing field.
-function M:draw(n)
-  if #self.bag < n then
-    return Engine:transition "gameover"
-  end
-
-	table.sample(self.bag, n, self.field, table.copy)
-end
-
 --- Sample a random enemy
 function M:encounter()
+	---@type Enemy
 	local enemy = table.unpack(table.replacement_sample(self.EnemyTable, 1))
-	self.enemy = enemy
-end
-
----@param n integer
----@param tab? Token[]
----@return Token[]
-function M:pull_into(n, tab)
-	return table.replacement_sample(self.TokenTable, n, tab)
-end
-
----@param n integer
----@param tab? Token[]
----@return Token[]
-function M:peek_into(n, tab)
-	return table.sample(self.bag, n, tab)
-end
-
---@param n integer
----@return Token[]
-function M:pull(n)
-	return self:pull_into(n)
-end
-
----@param n integer
----@return Token[]
-function M:peek(n)
-	return self:peek_into(n)
-end
-
----@param ts Token[]
-function M:draft(ts)
-	-- TODO: Fire event handlers!
-	for _, v in ipairs(ts) do
-		table.insert(self.bag, v)
-	end
-end
-
----@param n integer
-function M:exhaust(n)
-	assert(n <= #self.field)
-	local token = table.remove(self.field, n)
-	self:doexhaust(token)
-end
-
----@param token Token
-function M:doexhaust(token)
-	table.insert(self.exhausted, token)
-end
-
----@param n integer
-function M:play(n)
-	assert(n <= #self.hand)
-
-  if self.scene ~= "upgrading" then
-    return
-  end
-
-	---@type Card
-	local card = table.remove(self.hand, n)
-
-	assert(#self.play_token_stack == 0)
-	-- Push an empty table onto the play stack for each card operation we intend to do.
-	for _ = 1, #card.ops do
-		self:push({})
-	end
-
-	self.play_token_microops = table.flatmap(card.ops, function(c)
-		return c.microops
-	end)
-
-	-- Now we can play
-	self:__play()
-end
-
-function M:__play()
-	if table.isempty(self.play_token_microops) then
-		return
-	end
-
-	repeat
-		local microop = table.shift(self.play_token_microops)
-		assert(microop ~= nil)
-
-		local t = microop.type
-
-		print("[MICROOP] " .. t)
-
-		if t == "pull" then
-			self:pull_into(microop.amount, self:top())
-		elseif t == "peek" then
-			self:peek_into(microop.amount, self:top())
-		elseif t == "constant" then
-			for _ = 1, microop.amount do
-				table.insert(self:top(), microop.token)
-			end
-		elseif t == "filter" then
-			local tmp = {}
-
-			for _, v in ipairs(self:pop()) do
-				if microop.fun(v) then
-					table.insert(tmp, v)
-				end
-			end
-
-			self:push(tmp)
-		elseif t == "choose" then
-			return self:transition("choosing")
-		elseif t == "draft" then
-			self:draft(self:pop())
-		elseif t == "discard" then
-			-- TODO: Terrible solution!
-			-- Store source on token somewhere.
-			for _, v in ipairs(self:pop()) do
-				for i, b in ipairs(self.bag) do
-					if b.type == v.type then
-						table.remove(self.bag, i)
-						goto next
-					end
-				end
-				::next::
-			end
-		elseif t == "donate" then
-			-- TODO: Terrible solution!
-			-- Store source on token somewhere.
-			-- Give away token somehow!
-			for _, v in ipairs(self:pop()) do
-				for i, b in ipairs(self.bag) do
-					if b.type == v.type then
-						table.remove(self.bag, i)
-						goto next
-					end
-				end
-				::next::
-			end
-		else
-			assert(false, "Unhandled micro op type")
-		end
-	until table.isempty(self.play_token_microops)
+	self.enemy = Gameplay.enemy(enemy)
 end
 
 function M:load()

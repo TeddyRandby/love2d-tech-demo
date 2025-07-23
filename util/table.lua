@@ -169,3 +169,15 @@ function table.vals(t)
 
   return tmp
 end
+
+---@generic T
+---@param f fun(in: T): boolean
+---@param t T[]
+---@return T?
+function table.find(t, f)
+  for _, v in ipairs(t) do
+    if f(v) then
+      return v
+    end
+  end
+end

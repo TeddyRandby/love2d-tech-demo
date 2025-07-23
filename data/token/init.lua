@@ -1,7 +1,8 @@
 local M = {
 	Coin = require("data.token.types")[1],
-	Mana = require("data.token.types")[2],
-	Corruption = require("data.token.types")[3],
+	Bomb = require("data.token.types")[2],
+	Mana = require("data.token.types")[3],
+	Corruption = require("data.token.types")[4],
 }
 
 function M.radius()
