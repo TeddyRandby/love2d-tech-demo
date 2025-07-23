@@ -10,7 +10,13 @@ local Card = require("data.card")
 local Token = require("data.token")
 
 ---@alias RenderCommandButtonTarget { [1]: number, [2]: number, text: string }
----@alias RenderCommandType "button" | "bag" | "card" | "token"
+---@alias RenderCommandType "button" | "bag" | "card" | "token" | "text"
+
+---@class RenderCommandText
+---@field type "text"
+---@field target string
+---@field x integer
+---@field y integer
 
 ---@class RenderCommandButton
 ---@field type "button"
@@ -43,13 +49,11 @@ local Token = require("data.token")
 ---@field drag? fun(x: integer, y: integer)
 ---@field click? fun(x: integer, y: integer)
 
----@alias RenderCommand RenderCommandCard | RenderCommandToken | RenderCommandBag | RenderCommandMeta
+---@alias RenderCommand RenderCommandText | RenderCommandCard | RenderCommandToken | RenderCommandBag | RenderCommandMeta
 
----@param self RenderCommandBag
----@param x integer
----@param y integer
-local function bag_contains(self, x, y)
-	return false
+local function rect_collision(x, y, rx, ry, rw, rh)
+	local l, r, b, t = rx, rx + rw, ry, ry + rh
+	return x > l and x < r and y > b and y < t
 end
 
 ---@param self RenderCommandButton
@@ -57,8 +61,16 @@ end
 ---@param y integer
 local function box_contains(self, x, y)
 	local w, h = table.unpack(self.target)
-	local l, r, b, t = self.x, self.x + w, self.y, self.y + h
-	return x > l and x < r and y > b and y < t
+	return rect_collision(x, y, self.x, self.y, w, h)
+end
+
+---@param self RenderCommandText
+---@param x integer
+---@param y integer
+local function text_contains(self, x, y)
+  local h = love.graphics.getFont():getHeight()
+  local w = love.graphics.getFont():getWidth(self.target)
+	return rect_collision(x, y, self.x, self.y, w, h)
 end
 
 ---@param self RenderCommandCard
@@ -66,8 +78,14 @@ end
 ---@param y integer
 local function card_contains(self, x, y)
 	local cardw, cardh = Card.width(), Card.height()
-	local l, r, b, t = self.x, self.x + cardw, self.y, self.y + cardh
-	return x > l and x < r and y > b and y < t
+	return rect_collision(x, y, self.x, self.y, cardw, cardh)
+end
+
+---@param self RenderCommandBag
+---@param x integer
+---@param y integer
+local function bag_contains(self, x, y)
+	return rect_collision(x, y, self.x, self.y, #self.target * 10, 30)
 end
 
 ---@param self RenderCommandToken
@@ -89,8 +107,8 @@ local function token_contains(self, x, y)
 	-- 	return true
 	-- end
 
-	local contains =  (dx * dx + dy * dy) <= (tokenr * tokenr)
-  return contains
+	local contains = (dx * dx + dy * dy) <= (tokenr * tokenr)
+	return contains
 end
 
 ---@class RenderableOptions
@@ -163,6 +181,14 @@ function M:button(x, y, w, h, text, f)
 	self:push_renderable("button", { w, h, text = text }, box_contains, x, y, { click = f })
 end
 
+---@param text string
+---@param x integer
+---@param y integer
+---@param opts? RenderableOptions
+function M:text(text, x, y, opts)
+	self:push_renderable("text", text, text_contains, x, y, opts)
+end
+
 ---@param x integer
 ---@param y integer
 ---@return RenderCommand?
@@ -184,13 +210,19 @@ function M:draw()
 		local t = v.type
 
 		if t == "card" then
-      ---@type Card
-      local card = v.target
+			---@type Card
+			local card = v.target
 			Card.draw(card, v.x, v.y)
 		elseif t == "token" then
-      ---@type Token
+			---@type Token
 			local token = v.target
 			Token.draw(token, v.x, v.y)
+		elseif t == "text" then
+			---@type string
+			local text = v.target
+			local x, y = v.x, v.y
+			love.graphics.setColor(1, 1, 1, 1)
+			love.graphics.print(text, x, y)
 		elseif t == "button" then
 			---@type RenderCommandButtonTarget
 			local target = v.target

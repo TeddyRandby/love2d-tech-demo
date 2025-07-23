@@ -2,6 +2,7 @@
 
 ---@class Stats
 ---@field draw integer
+---@field lives integer
 
 ---@class Enemy
 ---@field type EnemyType
@@ -17,6 +18,6 @@ return {
 			coin = 3,
 			ooze = 4,
 		},
-		stats = { draw = 3 },
+		stats = { draw = 3, lives = 3 },
 	},
 }

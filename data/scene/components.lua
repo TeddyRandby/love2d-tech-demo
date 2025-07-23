@@ -78,7 +78,7 @@ function M.token_selector(x, y, n)
 					end
 				end
 
-        tokens = nil
+				tokens = nil
 
 				Engine:push(chosen)
 				Engine:push(not_chosen)
@@ -87,11 +87,11 @@ function M.token_selector(x, y, n)
 			end)
 
 			for v, is_chosen in pairs(tokens) do
-        local thisy = y
+				local thisy = y
 
-        if is_chosen then
-          thisy = thisy + 20
-        end
+				if is_chosen then
+					thisy = thisy + 20
+				end
 
 				View:token(v, thisx, thisy, {
 					click = function()
@@ -145,6 +145,20 @@ function M.card_selector(x, y, n)
 			component_data = {
 				cards = Engine:fish(n),
 			}
+		end
+	end
+end
+
+---@param x number
+---@param y number
+function M.enemy(x, y)
+	---@type Component
+	return function()
+		local enemy = Engine.enemy
+
+		if enemy then
+			View:text(enemy.type, x, y)
+			View:text(tostring(enemy.stats.lives), x + 200, y)
 		end
 	end
 end

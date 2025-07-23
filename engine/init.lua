@@ -68,11 +68,13 @@ function M:transition(scene)
     -- This will complete any pending micro-ops.
     -- As we may have yielded in the middle of playing a card
     -- (For example, to choose a token as an effect of playing a card)
-		self:doplay()
+		self:__play()
   elseif scene == "gameover" then
     self.bag = {}
     self.field = {}
     self.exhausted = {}
+  elseif scene == "battling" then
+    self:encounter()
 	end
 end
 
@@ -185,6 +187,10 @@ end
 function M:play(n)
 	assert(n <= #self.hand)
 
+  if self.scene ~= "upgrading" then
+    return
+  end
+
 	---@type Card
 	local card = table.remove(self.hand, n)
 
@@ -199,10 +205,10 @@ function M:play(n)
 	end)
 
 	-- Now we can play
-	self:doplay()
+	self:__play()
 end
 
-function M:doplay()
+function M:__play()
 	if table.isempty(self.play_token_microops) then
 		return
 	end
@@ -234,12 +240,7 @@ function M:doplay()
 
 			self:push(tmp)
 		elseif t == "choose" then
-			self:transition("choosing")
-			return
-		-- local not_chosen, chosen = self:pop(), {}
-		--
-		-- self:push(chosen)
-		-- self:push(not_chosen)
+			return self:transition("choosing")
 		elseif t == "draft" then
 			self:draft(self:pop())
 		elseif t == "discard" then

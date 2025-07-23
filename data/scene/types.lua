@@ -58,6 +58,7 @@ return {
 		name = "battling",
 		layout = {
 			Components.bag(0, 100),
+      Components.enemy(300, 100),
 			Components.button("Draw", function()
 				Engine:round()
 			end, 200, 200, 50, 50),
