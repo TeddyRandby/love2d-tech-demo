@@ -18,48 +18,32 @@ end
 ---@param x number
 ---@param y number
 ---@param f fun(): Card[]
----@param on_drag? fun(i: integer)
-function M.hand(x, y, f, on_drag)
-	if on_drag then
-		---@type Component
-		return function()
-			local cardw = Card.width()
-			local thisx = x
+---@param card_ueh? fun(i: integer, v: Card): UserEventHandler
+function M.hand(x, y, f, card_ueh)
+	---@type Component
+	return function()
+		local thisx = View.normalize_x(x)
+		local w = View.normalize_x(Card.width())
 
-			for i, v in ipairs(f()) do
-				if Engine:is_dragging(v) then
-					local mousex, mousey = love.mouse.getPosition()
-					View:card(v, mousex - Engine.dragging.ox, mousey - Engine.dragging.oy, {
-						drag = function()
-							on_drag(i)
-						end,
-					})
-				else
-					View:card(v, thisx, y, { drag = function() end })
-				end
-				thisx = thisx + cardw + 10
+		for i, v in ipairs(f()) do
+			View:card(v, thisx, y)
+
+			if card_ueh then
+				View:register(v, card_ueh(i, v))
 			end
-		end
-	else
-		---@type Component
-		return function()
-			local cardw = Card.width()
-			local thisx = x
-			for _, v in ipairs(f()) do
-				View:card(v, thisx, y)
-				thisx = thisx + cardw + 10
-			end
+
+			thisx = thisx + w + 10
 		end
 	end
 end
 
----@param text string
----@param f function
 ---@param x number
 ---@param y number
 ---@param w number
 ---@param h number
-function M.button(text, f, x, y, w, h)
+---@param text string
+---@param f function
+function M.button(x, y, w, h, text, f)
 	---@type Component
 	return function()
 		View:button(x, y, w, h, text, f)
@@ -76,9 +60,14 @@ function M.token_selector(x, y, n)
 	---@type Component
 	return function()
 		if tokens then
-			local thisx = x
+			local thisx = View.normalize_x(x)
+			local thisy = View.normalize_y(y)
 
-			View:button(x + 300, y, 50, 50, "confirm", function()
+			local tokenr = View.normalize_x(Token.radius())
+
+			local totalw = #tokens * Token.radius() + (#tokens - 1) * 0.01
+
+			View:button(totalw - 0.1, y, 0.1, 0.1, "confirm", function()
 				---@type Token[]
 				local chosen = {}
 
@@ -102,19 +91,19 @@ function M.token_selector(x, y, n)
 			end)
 
 			for v, is_chosen in pairs(tokens) do
-				local thisy = y
-
 				if is_chosen then
-					thisy = thisy + 20
+					View:token(v, thisx, thisy + tokenr)
+				else
+					View:token(v, thisx, thisy)
 				end
 
-				View:token(v, thisx, thisy, {
+				View:register(v, {
 					click = function()
-						tokens[v] = not is_chosen
+						tokens[v] = not tokens[v]
 					end,
 				})
 
-				thisx = thisx + 10 + Card.width()
+				thisx = thisx + tokenr * 2 + 10
 			end
 		else
 			-- Will get drawn on the next frame
@@ -135,17 +124,24 @@ function M.card_selector(x, y, n)
 	---@type Component
 	return function()
 		if cardpool then
-			local thisx = x
+			local thisx = View.normalize_x(x)
+			local w = View.normalize_x(Card.width())
 
-			for i, v in ipairs(cardpool) do
-				View:card(v, thisx, y, {
+			for i, c in ipairs(cardpool) do
+				View:card(c, thisx, y)
+
+				View:register(c, {
 					click = function()
-						table.insert(Engine.player.hand, v)
+						table.insert(Engine.player.hand, c)
 						table.remove(cardpool, i)
+
+						-- Unregister handlers for card when it is drawn.
+						View:register(c)
 
 						-- TODO: Add more intelligence than this
 						-- Use the enemy.enemy.draft_stats.likes table
 						table.sample(cardpool, 1, Engine.enemy.hand)
+						View:register(Engine.enemy.hand[#Engine.enemy.hand])
 
 						if table.isempty(cardpool) then
 							cardpool = nil
@@ -154,11 +150,11 @@ function M.card_selector(x, y, n)
 					end,
 				})
 
-				thisx = thisx + 10 + Card.width()
+				thisx = thisx + 10 + w
 			end
 		else
 			-- Will get drawn on the next frame
-			cardpool = Engine:fish(10)
+			cardpool = Engine.player:fish(10)
 		end
 	end
 end
@@ -181,59 +177,33 @@ end
 
 ---@param x number
 ---@param y number
----@param field_f fun(): Token[]
+---@param active_f fun(): Token[]
 ---@param exhausted_f fun(): Token[]
----@param on_drag? fun(i: integer, v: Token)
-function M.board(x, y, field_f, exhausted_f, on_drag)
-	if on_drag then
-		---@type Component
-		return function()
-			local tokenr = Token.radius()
-			local tokenw = tokenr * 2
+---@param token_ueh? fun(i: integer, v: Token): UserEventHandler
+function M.board(x, y, active_f, exhausted_f, token_ueh)
+	---@type Component
+	return function()
+		local tokenr = View.normalize_x(Token.radius())
+		local tokenw = tokenr * 2
 
-			local thisx = x + Token.radius()
-			local thisy = y + Token.radius()
+		local thisx = View.normalize_x(x) + tokenr
+		local thisy = View.normalize_y(y) + tokenr
 
-			for i, v in ipairs(field_f()) do
-				if Engine:is_dragging(v) then
-					local mousex, mousey = love.mouse.getPosition()
-					View:token(v, mousex - Engine.dragging.ox, mousey - Engine.dragging.oy, {
-						drag = function()
-							on_drag(i, v)
-						end,
-					})
-				else
-					View:token(v, thisx, thisy, { drag = function() end })
-				end
+		local active, exhausted = active_f(), exhausted_f()
 
-				thisx = thisx + tokenw + 10
-			end
+		for i, v in ipairs(active) do
+			View:token(v, thisx, thisy)
+			View:register(v, token_ueh and token_ueh(i, v))
 
-			thisx = x + 400
-			for _, v in ipairs(exhausted_f()) do
-				View:token(v, thisx, thisy)
-				thisx = thisx + tokenw + 10
-			end
+			thisx = thisx + tokenw + 10
 		end
-	else
-		---@type Component
-		return function()
-			local tokenr = Token.radius()
-			local tokenw = tokenr * 2
 
-			local thisx = x + Token.radius()
-			local thisy = y + Token.radius()
+		thisx = thisx + tokenw + tokenw
+		for i, v in ipairs(exhausted) do
+			View:token(v, thisx, thisy)
+			View:register(v, token_ueh and token_ueh(i, v))
 
-			for _, v in ipairs(field_f()) do
-				View:token(v, thisx, thisy, { drag = function() end })
-				thisx = thisx + tokenw + 10
-			end
-
-			thisx = x + 400
-			for _, v in ipairs(exhausted_f()) do
-				View:token(v, thisx, thisy)
-				thisx = thisx + tokenw + 10
-			end
+			thisx = thisx + tokenw + 10
 		end
 	end
 end

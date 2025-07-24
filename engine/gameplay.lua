@@ -5,15 +5,27 @@
 ---@field active boolean
 
 ---@alias TokenEventType "draft" | "discard" | "donate" | "draw" | "exhaust"
+--
+-- EVENT DISCOURSE
+--
+-- Throughout gameplay, certain clickables require/use a gameplay cost.
+-- Exhausting a token should provide a resource (eg: >imp)
+-- Activating a token should provide the inverse (eg: <imp)
+--
+-- Producing a resource should only be possible if a player has a way to use it.
+-- This can be checked by defining 'Moves'
 
 local Token = require("data.token")
+local Move = require("data.move")
 
----@alias TokenState "bag" | "field" | "exhausted"
+---@alias TokenState "bag" | "active" | "exhausted"
 
 ---@class GameplayData
 ---@field drawn integer
 ---@field power integer
 ---@field lives integer
+---@field TokenTable Token[]
+---@field CardTable Card[]
 ---@field token_event_handlers table<TokenEventType, TokenEventHandler[]>
 ---@field token_list Token[]
 ---@field token_states table<Token, TokenState>
@@ -21,7 +33,8 @@ local Token = require("data.token")
 ---@field token_stack Token[][]
 ---@field token_microops ActionMicroOp[]
 ---@field choose_impl fun(self:GameplayData)
----@field player? BattleStats
+---@field moves MoveType[]
+---@field player? Class
 ---@field enemy? Enemy
 ---@field __wouldfire? fun(self: GameplayData, e: TokenEventType, t: Token): TokenEventHandler[]
 ---@field __fire? fun(self: GameplayData, e: TokenEventType, t: Token)
@@ -30,7 +43,7 @@ local Token = require("data.token")
 ---@field push? fun(self: GameplayData, e: Token[])
 ---@field __tokensin? fun(self: GameplayData, s: TokenState): Token[]
 ---@field bag? fun(self: GameplayData): Token[]
----@field field? fun(self: GameplayData): Token[]
+---@field active? fun(self: GameplayData): Token[]
 ---@field exhausted? fun(self: GameplayData): Token[]
 ---@field isempty? fun(self: GameplayData): boolean
 ---@field hit? fun(self: GameplayData)
@@ -39,7 +52,11 @@ local Token = require("data.token")
 ---@field __play? fun(self: GameplayData)
 ---@field peek_into? fun(self: GameplayData, n: integer, tab?: Token[]): Token[]
 ---@field peek? fun(self: GameplayData, n: integer): Token[]
+---@field pull? fun(self: GameplayData, n: integer): Token[]
+---@field pull_into? fun(self: GameplayData, n: integer, tab?: Token[]): Token[]
+---@field fish? fun(self: GameplayData, n: integer, tab?: Card[]): Card[]
 ---@field choose? fun(self: GameplayData)
+---@field useful? fun(self: GameplayData, t: Token, s?: TokenState): boolean
 ---@field draw? fun(self: GameplayData, n: integer?)
 ---@field draft? fun(self: GameplayData, ts: Token[])
 ---@field exhaust? fun(self: GameplayData, ts: Token[])
@@ -70,6 +87,23 @@ local function inherit(m)
 		return self:peek_into(n)
 	end
 
+	function m:pull(n)
+		return self:pull_into(n)
+	end
+
+	function m:pull_into(n, tab)
+		-- Copy each sampled token so that they are unique game objects.
+		return table.replacement_sample(self.TokenTable, n, tab, table.copy)
+	end
+
+	--- Draw cards at random from the card table. Because the work 'draw' is already taken
+	--- for drawing tokens from your bag during combat, the word 'fish' is used instead.
+	--- This is inspired by the french translations of 'draw a card' in other card games.
+	function m:fish(n, tab)
+		-- We copy each sampled element so that they are unique game objects.
+		return table.replacement_sample(self.CardTable, n, tab, table.copy)
+	end
+
 	function m:hit()
 		self.lives = self.lives - 1
 	end
@@ -80,7 +114,7 @@ local function inherit(m)
 		end
 
 		assert(#self:bag() == #self.token_list)
-		assert(#self:field() == 0)
+		assert(#self:active() == 0)
 		assert(#self:exhausted() == 0)
 	end
 
@@ -101,8 +135,8 @@ local function inherit(m)
 		return self:__tokensin("bag")
 	end
 
-	function m:field()
-		return self:__tokensin("field")
+	function m:active()
+		return self:__tokensin("active")
 	end
 
 	function m:exhausted()
@@ -168,7 +202,7 @@ local function inherit(m)
 
 		for _, v in ipairs(drawn) do
 			assert(self.token_states[v] == "bag")
-			self.token_states[v] = "field"
+			self.token_states[v] = "active"
 		end
 
 		for _, v in ipairs(drawn) do
@@ -198,10 +232,27 @@ local function inherit(m)
 		to:draft(ts)
 	end
 
+	function m:useful(t, s)
+		local state = self.token_states[t]
+		s = s or state
+
+		-- A token we don't have or in the bag isn't useful
+		if not state or state == "bag" then
+			return false
+		end
+
+		-- A token is only useful a we have a move
+		-- available which requires it.
+		return not not table.find(self.moves, function(move)
+			local movedata = require("data.move.types")[move]
+			return Move.needs(movedata, t, s)
+		end)
+	end
+
 	function m:play(n)
 		n = n or Engine.rng:random(#self.hand)
 
-		if Engine.scene ~= "upgrading" then
+		if Engine.scene ~= "upgrading" or table.isempty(self.hand) then
 			return
 		end
 
@@ -236,7 +287,7 @@ local function inherit(m)
 			print("[MICROOP] " .. t)
 
 			if t == "pull" then
-				Engine:pull_into(microop.amount, self:top())
+				self:pull_into(microop.amount, self:top())
 			elseif t == "peek" then
 				self:peek_into(microop.amount, self:top())
 			elseif t == "constant" then
@@ -279,7 +330,7 @@ local universal_token_handlers = {
 		{
 			name = "bomb_explode",
 			effect = function(self, token)
-				local minion = table.find(self:field(), Token.isMinion)
+				local minion = table.find(self:active(), Token.isMinion)
 
 				if minion then
 					self:discard({ minion })
@@ -292,27 +343,51 @@ local universal_token_handlers = {
 			end,
 			active = true,
 		},
-	},
-	exhaust = {
 		{
-			name = "minion_attack",
+			name = "corruption_hit",
 			effect = function(self, token)
-				self.power = self.power + 1
+				local corruptions = table.filter(self:active(), Token.isCorruption)
+				assert(#corruptions >= 2)
+
+				self:exhaust(corruptions)
+				self:hit()
 			end,
 			valid = function(self, token)
-				return Token.isMinion(token)
+				return table.count(self:active(), Token.isCorruption) > 1
 			end,
 			active = true,
 		},
 	},
 }
 
----@param stats BattleStats
-function M.player(stats)
+---@generic T: { type: string }
+---@param srctable T[]
+---@param freqtable table<T, integer>
+---@return T[]
+local function construct_droptable(srctable, freqtable)
+	local dt = {}
+
+	for _, v in ipairs(srctable) do
+		local freq = freqtable[v.type]
+		if freq then
+			for _ = 1, freq do
+				table.insert(dt, v)
+			end
+		end
+	end
+
+	return dt
+end
+
+---@param class Class
+function M.player(class)
 	return inherit({
-		drawn = stats.draw,
+		moves = class.moves,
+		CardTable = construct_droptable(Engine.CardTypes, class.card_table),
+		TokenTable = construct_droptable(Engine.TokenTypes, class.token_table),
 		power = 0,
-		lives = stats.lives,
+		drawn = class.battle_stats.draw,
+		lives = class.battle_stats.lives,
 		hand = {},
 		token_list = {},
 		token_states = {},
@@ -322,13 +397,16 @@ function M.player(stats)
 		choose_impl = function()
 			return Engine:transition("choosing")
 		end,
-		player = stats,
+		player = class,
 	})
 end
 
 ---@param enemy Enemy
 function M.enemy(enemy)
 	return inherit({
+		moves = {},
+		CardTable = construct_droptable(Engine.CardTypes, enemy.card_table),
+		TokenTable = construct_droptable(Engine.TokenTypes, enemy.token_table),
 		drawn = enemy.battle_stats.draw,
 		power = 0,
 		lives = enemy.battle_stats.lives,

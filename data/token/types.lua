@@ -1,12 +1,12 @@
 ---@alias TokenType "coin" | "mana" | "corruption" | "bomb" | "ooze" | "elemental" | "imp" | "customer" | "parrot" | "skeleton"
-
+---@alias TokenDropTable table<TokenType, integer>
+---
 ---@class Token
 ---@field type TokenType
----@field freq integer
 ---@field color number[]
 
----@type Token[]
-return {
+---@type table<TokenType, Token>
+local M = {
   {
     type = "coin",
     freq = 1,
@@ -58,3 +58,9 @@ return {
     color = { 0, 1, 1, 1 }
   },
 }
+
+for _, v in ipairs(M) do
+  M[v.type] = v
+end
+
+return M

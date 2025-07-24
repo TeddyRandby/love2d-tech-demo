@@ -18,7 +18,7 @@ function M.describe(card)
 end
 
 function M.width()
-	return love.graphics.getWidth() / 10
+	return .1
 end
 
 function M.height()
@@ -30,7 +30,7 @@ end
 ---@param y integer
 function M.draw(card, x, y)
 	local pd = 10
-	local w, h = M.width(), M.height()
+	local w, h = View.normalize_xy(M.width(), M.height(), M.width(), M.height())
 
 	love.graphics.setColor(0, 0.5, 0.5, 1)
 	love.graphics.rectangle("fill", x, y, w, h)

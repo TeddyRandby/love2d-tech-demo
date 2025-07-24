@@ -62,14 +62,14 @@ end
 
 ---@generic T
 ---@generic X
----@param f fun(in: T): X
+---@param f fun(in: T, i?: integer): X
 ---@param t T[]
 ---@return X[]
 function table.map(t, f)
 	local tmp = {}
 
-	for _, v in ipairs(t) do
-		table.insert(tmp, f(v))
+	for i, v in ipairs(t) do
+		table.insert(tmp, f(v, i))
 	end
 
 	return tmp
@@ -84,9 +84,9 @@ function table.flatmap(t, f)
 	local tmp = {}
 
 	for _, x in ipairs(t) do
-    for _, v in ipairs(f(x)) do
-      table.insert(tmp, v)
-    end
+		for _, v in ipairs(f(x)) do
+			table.insert(tmp, v)
+		end
 	end
 
 	return tmp
@@ -139,7 +139,7 @@ end
 ---@param t T[]
 ---@return boolean
 function table.isempty(t)
-  return #t == 0
+	return #t == 0
 end
 
 ---@generic K
@@ -147,13 +147,13 @@ end
 ---@param t table<K, V>
 ---@return K[]
 function table.keys(t)
-  local tmp = {}
+	local tmp = {}
 
-  for k in pairs(t) do
-    table.insert(k)
-  end
+	for k in pairs(t) do
+		table.insert(k)
+	end
 
-  return tmp
+	return tmp
 end
 
 ---@generic K
@@ -161,13 +161,13 @@ end
 ---@param t table<K, V>
 ---@return V[]
 function table.vals(t)
-  local tmp = {}
+	local tmp = {}
 
-  for _, v in pairs(t) do
-    table.insert(v)
-  end
+	for _, v in pairs(t) do
+		table.insert(v)
+	end
 
-  return tmp
+	return tmp
 end
 
 ---@generic T
@@ -175,9 +175,25 @@ end
 ---@param t T[]
 ---@return T?
 function table.find(t, f)
-  for _, v in ipairs(t) do
-    if f(v) then
-      return v
-    end
-  end
+	for _, v in ipairs(t) do
+		if f(v) then
+			return v
+		end
+	end
+end
+
+---@generic T
+---@param f fun(in: T): boolean
+---@param t T[]
+---@return integer
+function table.count(t, f)
+	local count = 0
+
+	for _, v in ipairs(t) do
+		if f(v) then
+			count = count + 1
+		end
+	end
+
+	return count
 end

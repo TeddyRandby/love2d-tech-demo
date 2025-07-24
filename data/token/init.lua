@@ -6,11 +6,15 @@ local M = {
 }
 
 function M.radius()
-	return love.graphics.getWidth() / 30
+	return .03
 end
 
 function M.isMana(t)
 	return t.type == "mana"
+end
+
+function M.isCorruption(t)
+	return t.type == "corruption"
 end
 
 function M.isMinion(token)
@@ -23,7 +27,7 @@ end
 ---@param y integer
 function M.draw(token, x, y)
 	local pd = 10
-	local r = M.radius()
+	local r = View.normalize_x(M.radius())
 
 	love.graphics.setColor(0, 0.5, 0.5, 1)
 	love.graphics.circle("line", x, y, r)

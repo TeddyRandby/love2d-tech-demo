@@ -186,8 +186,8 @@ function M.refine(n)
     microops = {
       M.input.peek(n),
       M.intermediate.choose(1),
-      M.output.draft(),
       M.output.discard(),
+      M.output.draft(),
     },
   }
 end
