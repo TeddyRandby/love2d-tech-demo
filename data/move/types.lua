@@ -6,7 +6,7 @@
 ---@field state TokenState
 ---
 ---@class Move
----@field type MoveType | fun(t: Token): boolean
+---@field type MoveType
 ---@field cost MoveCost
 ---@field effect fun(g: GameplayData)
 

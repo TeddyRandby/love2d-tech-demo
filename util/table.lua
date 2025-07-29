@@ -131,6 +131,13 @@ end
 ---@generic T
 ---@param t T[]
 ---@return T?
+function table.peek(t)
+	return t[#t]
+end
+
+---@generic T
+---@param t T[]
+---@return T?
 function table.shift(t)
 	return table.remove(t, 1)
 end
