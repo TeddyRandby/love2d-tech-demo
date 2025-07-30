@@ -130,7 +130,8 @@ function M:__fire(o, e, x, y, data)
 end
 
 ---@alias RenderCommandButtonTarget { [1]: number, [2]: number, text: string }
----@alias RenderCommandType "button" | "bag" | "card" | "token" | "text" | "move"
+---@alias RenderCommandBoardSlotTarget { type: TokenType, amt: integer }
+---@alias RenderCommandType "button" | "bag" | "card" | "token" | "text" | "move" | "board"
 
 ---@class RenderCommandText
 ---@field type "text"
@@ -155,6 +156,10 @@ end
 ---@class RenderCommandMove
 ---@field type "move"
 ---@field target Move
+---
+---@class RenderCommandBoardSlot
+---@field type "board"
+---@field target RenderCommandBoardSlotTarget
 
 ---@class RenderCommandMeta
 ---@field contains fun(self: RenderCommand, x: integer, y: integer): boolean
@@ -180,7 +185,7 @@ function M:receivable(c)
   return hs and not not hs["receive"]
 end
 
----@alias RenderCommand RenderCommandText | RenderCommandCard | RenderCommandToken | RenderCommandBag | RenderCommandMeta
+---@alias RenderCommand RenderCommandText | RenderCommandCard | RenderCommandToken | RenderCommandBag | RenderCommandMove | RenderCommandBoardSlot | RenderCommandMeta
 
 ---@param n number
 ---@param max integer
@@ -229,9 +234,16 @@ end
 local function text_contains(self, x, y)
   local h = love.graphics.getFont():getHeight()
   local w = love.graphics.getFont():getWidth(self.target)
-  local ops = M.command_target_positions[self.target]
-  assert(ops ~= nil)
-  return rect_collision(x, y, ops.x, ops.y, w, h)
+  local pos = M.command_target_positions[self.target]
+  assert(pos ~= nil)
+  return rect_collision(x, y, pos.x, pos.y, w, h)
+end
+
+local function board_contains(self, x, y)
+  local w, h = M.normalize_xy(0.3, 0.4)
+  local pos = M.command_target_positions[self.target]
+  assert(pos ~= nil)
+  return rect_collision(x, y, pos.x, pos.y, w, h)
 end
 
 ---@param self RenderCommandCard | RenderCommandMeta
@@ -336,8 +348,8 @@ function M:push_renderable(type, target, contain_f, x, y, r, ox, oy, time)
     if not existing.tween then
       if existing.x ~= x or existing.y ~= y or existing.r ~= r then
         existing.tween = flux
-            .to(existing, time or 0.5, { x = x, y = y, r = r or 0 })
-            -- :ease("expoinout") -- Experiement with the easing function
+            .to(existing, time or 0.2, { x = x, y = y, r = r or 0 })
+            :ease("sineinout") -- Experiement with the easing function
             :oncomplete(function()
               existing.tween = nil
             end)
@@ -364,10 +376,23 @@ end
 ---@param x integer
 ---@param y integer
 ---@param r? integer
+---@param ox? integer
+---@param oy? integer
 ---@param t? number
-function M:card(card, x, y, r, t)
+function M:card(card, x, y, r, ox, oy, t)
   -- Is there a better way to do this, with meta tables?
-  self:push_renderable("card", card, card_contains, x, y, r, nil, nil, t)
+  self:push_renderable("card", card, card_contains, x, y, r, ox, oy, t)
+end
+
+---@param board_slot RenderCommandBoardSlotTarget
+---@param x integer
+---@param y integer
+---@param r? integer
+---@param ox? integer
+---@param oy? integer
+---@param t? number
+function M:boardslot(board_slot, x, y, r, ox, oy, t)
+  self:push_renderable("board", board_slot, board_contains, x, y, r, ox, oy, t)
 end
 
 ---@param move Move
@@ -453,6 +478,11 @@ function M:pos(c)
   return self.command_target_positions[c.target]
 end
 
+---@param t RenderCommandTarget
+function M:post(t)
+  return self.command_target_positions[t]
+end
+
 -- Prevent blurring when scaling png images
 -- Set this globally
 love.graphics.setDefaultFilter("nearest", "nearest")
@@ -489,6 +519,28 @@ function M:__drawbutton(x, y, w, h, text)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+local BoardSlotImage = love.graphics.newImage("resources/board-slot.png")
+local BoardSlotImageWidth = BoardSlotImage:getWidth()
+local BoardSlotImageHeight = BoardSlotImage:getHeight()
+
+---@param x integer
+---@param y integer
+---@param t RenderCommandBoardSlotTarget
+function M:__drawboardslot(x, y, t)
+  x, y = self.normalize_xy(x, y)
+  local w, h = View.normalize_xy(0.16, 0.04)
+  local sx = w / BoardSlotImageWidth
+  local sy = h / BoardSlotImageHeight
+
+  local fsy = View.normalize_y(View.getFontSize()) / FontHeight
+
+  love.graphics.translate(x, y)
+  love.graphics.draw(BoardSlotImage, 0, 0, 0, sx, sy)
+  love.graphics.setColor(1,1,1)
+  love.graphics.printf(t.type, 5 * sx, 4 * sy / fsy, (45 * sx / fsy), "left", 0, fsy, fsy)
+  love.graphics.printf("" .. t.amt, 53 * sx, 4 * sy / fsy, (19 * sx / fsy), "left", 0, fsy, fsy)
+end
+
 local BagImage = love.graphics.newImage("resources/bag.png")
 local BagImageWidth = BagImage:getWidth()
 local BagImageHeight = BagImage:getHeight()
@@ -496,10 +548,7 @@ local BagImageHeight = BagImage:getHeight()
 local BagWidth = 0.1
 local BagHeight = BagWidth * 8
 
-local BagItemWidth = BagWidth
-local BagItemHeight = BagWidth / 3
-
-function M:__drawbag(x, y, tokens)
+function M:__drawbag(x, y)
   -- Silly way of doing this. Since tokens arent game objects,
   -- we can track them smartly in the bag.
   local w, h = self.normalize_xy(BagWidth, BagHeight)
@@ -567,6 +616,11 @@ function M:draw()
 
       love.graphics.setColor(1, 1, 1, 1)
       love.graphics.print(text, pos.x, pos.y)
+    elseif t == "board" then
+      ---@type RenderCommandBoardSlotTarget
+      local target = v.target
+      local pos = self.command_target_positions[target]
+      self:__drawboardslot(pos.x, pos.y, target)
     elseif t == "button" then
       ---@type RenderCommandButtonTarget
       local target = v.target
@@ -578,7 +632,7 @@ function M:draw()
       local target = v.target
 
       local pos = self.command_target_positions[target]
-      self:__drawbag(pos.x, pos.y, target)
+      self:__drawbag(pos.x, pos.y)
     else
       assert(false, "Unhandled case")
     end

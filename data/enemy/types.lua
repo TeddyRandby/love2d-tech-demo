@@ -1,40 +1,43 @@
 ---@alias EnemyType "ogre"
-
----@class DraftStats
----@field likes CardType[]
-
 ---@class BattleStats
 ---@field draw integer
 ---@field lives integer
 
 ---@class Enemy
 ---@field type EnemyType
----@field draft_stats DraftStats
 ---@field battle_stats BattleStats
 ---@field token_table TokenDropTable
 ---@field card_table CardDropTable
+---@field signature TokenType
+---@field moves MoveType[]
+---@field effects EffectType[]
+---@field oppeffects EffectType[]
 
 ---@type Enemy[]
 return {
-	{
-		type = "ogre",
-		token_table = {
-			skeleton = 2,
-			ooze = 2,
-		},
-		card_table = {
-			Discover = 1,
-			Refine = 1,
-			Pillage = 1,
-			Bargain = 1,
-			Meditate = 1,
-			Recruit = 1,
-		},
-		battle_stats = { draw = 3, lives = 3 },
-		draft_stats = {
-			likes = {
-				"Recruit",
-			},
-		},
-	},
+  {
+    type = "ogre",
+    signature = "skeleton",
+    token_table = {
+      skeleton = 2,
+      ooze = 2,
+    },
+    card_table = {
+      discover = 1,
+      refine = 1,
+      pillage = 1,
+      bargain = 1,
+      meditate = 1,
+      recruit = 1,
+    },
+    battle_stats = { draw = 3, lives = 3 },
+    moves = {
+      "minion_attack",
+    },
+    effects = {
+      "bomb_explode",
+      "corruption_hit",
+    },
+    oppeffects = {},
+  },
 }

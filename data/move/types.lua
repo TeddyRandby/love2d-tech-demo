@@ -1,21 +1,21 @@
----@alias MoveType "Attack"
----
+---@alias MoveType "minion_attack"
+
 ---@class MoveCost
 ---@field type TokenType | fun(t: Token): boolean
 ---@field amount integer
 ---@field state TokenState
----
+
 ---@class Move
 ---@field type MoveType
 ---@field cost MoveCost
 ---@field effect fun(g: GameplayData)
 
-local Token = require "data.token"
+local Token = require("data.token")
 
----@type table<MoveType, Move>
+---@type Move[]
 return {
-  Attack = {
-    type = "Attack",
+  {
+    type = "minion_attack",
     cost = {
       type = Token.isMinion,
       amount = 1,
@@ -23,6 +23,6 @@ return {
     },
     effect = function(g)
       g.power = g.power + 1
-    end
+    end,
   },
 }

@@ -1,5 +1,16 @@
 local M = {}
 
+local MoveTypes = require "data.move.types"
+
+for _, v in ipairs(MoveTypes) do
+  M[v.type] = v
+end
+
+---@param types MoveType[]
+function M.array_of(types)
+  return table.map(types, function(t) return M[t] end)
+end
+
 ---@param m Move
 ---@param t Token
 ---@param s? TokenState
@@ -15,6 +26,34 @@ function M.needs(m, t, s)
   else
     return m.cost.type == t
   end
+end
+
+---@param m Move
+---@param token_states table<Token, TokenState>
+function M.cost_matcher(m, token_states)
+  if type(m.cost.type) == "function" then
+    return function(t)
+      return m.cost.type(t) and token_states[t] == m.cost.state
+    end
+  else
+    return function(t)
+      return t.type == m.cost.type and token_states[t] == m.cost.state
+    end
+  end
+end
+
+---@param m Move
+---@param tokens Token[]
+---@param token_states table<Token, TokenState>
+function M.matches_cost(m, tokens, token_states)
+  return table.filter(tokens, M.cost_matcher(m, token_states))
+end
+
+---@param m Move
+---@param tokens Token[]
+---@param token_states table<Token, TokenState>
+function M.cost_is_met(m, tokens, token_states)
+  return #M.matches_cost(m, tokens, token_states) >= m.cost.amount
 end
 
 function M.width()
@@ -38,36 +77,17 @@ local MoveImageHeight = MoveImage:getHeight()
 function M.draw(move, x, y)
   local w, h = View.normalize_xy(M.width(), M.height(), M.width(), M.height())
 
-  local mousex, mousey = love.mouse.getPosition()
-
   local sx = w / MoveImageWidth
   local sy = h / MoveImageHeight
   local fsy = View.normalize_y(View.getFontSize()) / FontHeight
 
   love.graphics.translate(x, y)
 
-  local hovered = View:hover(mousex, mousey)
-
-  -- This is a type-cast such that M.needs will approve of the call.
-  -- If hovered is not a token, M.needs will return false.
-  ---@type Token
-  local token = hovered and hovered.target
-
-  if hovered and M.needs(move, token) then
-    if View:is_dragging(token) then
-      local _, hovered_under = View:is_hovering(move)
-      if hovered_under then
-        love.graphics.setColor(1, 1, 1, 1)
-      else
-        love.graphics.setColor(1, 1, 1, 0.75)
-      end
-    else
-      love.graphics.setColor(1, 1, 1, 0.50)
-    end
+  if Engine.player:doable(move) and View:is_hovering(move)then
+    love.graphics.setColor(1, 1, 1, 1)
   else
     love.graphics.setColor(28 / 255, 26 / 255, 48 / 255, 1)
   end
-
   love.graphics.rectangle("fill", -View.normalize_x(0.01), -View.normalize_y(0.01), w * 1.1, h * 1.2)
 
   love.graphics.setColor(1, 1, 1)

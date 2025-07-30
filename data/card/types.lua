@@ -1,4 +1,4 @@
----@alias CardType "Discover" | "Refine" | "Pillage" | "Bargain" | "Meditate" | "Recruit"
+---@alias CardType "discover" | "refine" | "pillage" | "bargain" | "meditate" | "recruit" | "sacrifice"
 ---@alias CardDropTable table<CardType, integer>
 ---
 ---@class Card
@@ -10,42 +10,49 @@ Actions = require("data.card.actions")
 ---@type Card[]
 return {
 	{
-		type = "Discover",
+		type = "discover",
 		ops = {
 			Actions.discover(3),
 		},
 	},
+  {
+    type = "sacrifice",
+    ops = {
+      Actions.draft_signature(1),
+      Actions.draft_corruption(1),
+    },
+  },
 	{
-		type = "Refine",
+		type = "refine",
 		ops = {
 			Actions.refine(3),
 		},
 	},
 	{
-		type = "Pillage",
+		type = "pillage",
 		ops = {
 			Actions.loot(1, 1),
 			Actions.draft_coin(1),
 		},
 	},
 	{
-		type = "Bargain",
+		type = "bargain",
 		ops = {
 			Actions.draft_coin(1),
 			Actions.draft_corruption(1),
 		},
 	},
 	{
-		type = "Meditate",
+		type = "meditate",
 		ops = {
 			Actions.dig_mana(6),
 			Actions.draft_corruption(1),
 		},
 	},
 	{
-		type = "Recruit",
+		type = "recruit",
 		ops = {
-			Actions.dig_minion(6),
+			Actions.dig_minion(3),
 			Actions.draft_corruption(1),
 		},
 	},

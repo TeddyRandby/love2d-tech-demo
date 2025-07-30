@@ -144,6 +144,23 @@ end
 
 ---@generic T
 ---@param t T[]
+---@param n integer
+---@param f? fun(list: T[]): T
+---@return T[]
+function table.take(t, n, f)
+  f = f or table.pop
+
+  local tmp = {}
+
+  for _ = 1, n do
+    table.insert(tmp, f(t))
+  end
+
+  return tmp
+end
+
+---@generic T
+---@param t T[]
 ---@return boolean
 function table.isempty(t)
 	return #t == 0

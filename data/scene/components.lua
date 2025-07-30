@@ -15,12 +15,10 @@ function M.bag(x, y, f)
 
     View:bag(ts, x, y)
 
+    -- TODO: If our y coordinate wraps over one, we have to fix that
+    -- and wrap properly.
     for i, token in ipairs(ts) do
-      if View:is_hovering(token) then
-        View:token(token, x + Token.radius(), y + (i * 0.03), 0.5, 0, 0.6)
-      else
-        View:token(token, x, y + i * 0.03, 0.5, 0, 0.6)
-      end
+      View:token(token, x, y + i * 0.03, 0.5, 0, 0.4)
     end
   end
 end
@@ -67,7 +65,7 @@ function M.hand(x, y, f, card_ueh)
         angle = 0
       end
 
-      View:card(v, thisx, thisy, angle, 0.4)
+      View:card(v, thisx, thisy, angle, nil, nil, 0.4)
 
       if card_ueh then
         View:register(v, card_ueh(i, v))
@@ -164,6 +162,7 @@ end
 ---@param y number
 function M.card_selector(x, y)
   local cardpool = nil
+  local chosen = nil
 
   ---@type Component
   return function()
@@ -173,6 +172,10 @@ function M.card_selector(x, y)
 
       local left, right = cardpool[1], cardpool[2]
 
+      -- if chosen and View:post(chosen) and View:post(chosen).tween then
+      --   return
+      -- end
+
       assert(left ~= nil)
       assert(right ~= nil)
 
@@ -180,14 +183,14 @@ function M.card_selector(x, y)
       ---@param b Card
       ---@param position integer
       local function drawcard(a, b, position)
-        View:card(a, position, y)
+        View:card(a, position, y, nil, position, 0, 0.5)
 
         View:register(a, {
           click = function()
+            chosen = a
+
             table.insert(Engine.player.hand, a)
 
-            -- TODO: Add more intelligence than this
-            -- Use the enemy.enemy.draft_stats.likes table
             table.insert(Engine.enemy.hand, b)
 
             -- Unregister handlers for cards when it is drawn.
@@ -223,7 +226,14 @@ function M.enemy(x, y)
     local enemy = Engine.enemy
     if enemy then
       View:text(
-        enemy.enemy.type .. "(" .. Engine.enemy.lives .. "/" .. Engine.enemy.enemy.battle_stats.lives .. ")",
+        enemy.enemy.type
+        .. "("
+        .. Engine.enemy.lives
+        .. "/"
+        .. Engine.enemy.enemy.battle_stats.lives
+        .. ")"
+        .. ". Power: "
+        .. Engine.enemy.power,
         x,
         y
       )
@@ -237,29 +247,64 @@ end
 ---@param exhausted_f fun(): Token[]
 ---@param token_ueh? fun(i: integer, v: Token): UserEventHandler
 function M.board(x, y, active_f, exhausted_f, token_ueh)
+  local token_types = require("data.token.types")
+
+  local active_slot_data = {}
+  local exhausted_slot_data = {}
+
+  for _, token_type in ipairs(token_types) do
+    active_slot_data[token_type.type] = { type = token_type.type, amt = 0 }
+    exhausted_slot_data[token_type.type] = { type = token_type.type, amt = 0 }
+  end
+
   ---@type Component
   return function()
-    local tokenr = View.normalize_x(Token.radius())
-    local tokenw = tokenr * 2
+    local w, h = View.normalize_xy(0.16, 0.04)
+
+    local active, exhausted = active_f(), exhausted_f()
 
     local thisx = View.normalize_x(x)
     local thisy = View.normalize_y(y)
 
-    local active, exhausted = active_f(), exhausted_f()
+    local sloty = thisy
 
-    for i, v in ipairs(active) do
-      View:token(v, thisx, thisy, nil, nil, 0.6)
-      View:register(v, token_ueh and token_ueh(i, v))
+    for i, token_type in ipairs(token_types) do
+      local active_of_type = table.filter(active, function(t)
+        return t.type == token_type.type
+      end)
 
-      thisx = thisx + tokenw + 10
+      local exhausted_of_type = table.filter(exhausted, function(t)
+        return t.type == token_type.type
+      end)
+
+      active_slot_data[token_type.type].amt = #active_of_type
+      exhausted_slot_data[token_type.type].amt = #exhausted_of_type
+
+      if #active_of_type > 0 then
+        View:boardslot(active_slot_data[token_type.type], thisx, sloty, nil, 0, sloty, 0.2 + i * 0.1)
+      end
+
+      if #exhausted_of_type > 0 then
+        View:boardslot(exhausted_slot_data[token_type.type], thisx + w, sloty, nil, 0, sloty, 0.2 + i * 0.1)
+      end
+
+      if #active_of_type > 0 or #exhausted_of_type > 0 then
+        sloty = sloty + h
+      end
     end
 
-    thisx = thisx + tokenw + tokenw
-    for i, v in ipairs(exhausted) do
-      View:token(v, thisx, thisy, nil, nil, 0.6)
-      View:register(v, token_ueh and token_ueh(i, v))
+    local tokenr = View.normalize_x(Token.radius())
+    local pd = View.normalize_x(4)
 
-      thisx = thisx + tokenw + 10
+    local tokx = thisx
+    local toky = thisy + h * #token_types
+    for i, v in ipairs(active) do
+      View:token(v, tokx + (i - 1) * pd, toky)
+    end
+
+    toky = toky + tokenr * 2 + pd * 2
+    for i, v in ipairs(exhausted) do
+      View:token(v, tokx + (i - 1) * pd, toky)
     end
   end
 end

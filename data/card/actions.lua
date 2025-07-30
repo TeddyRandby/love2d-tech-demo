@@ -18,14 +18,27 @@ local M = {
 ---@field type "constant"
 ---@field amount integer
 ---@field token Token
+---
+---@class ActionInputMicroOpSignature
+---@field type "signature"
+---@field amount integer
 
----@alias ActionInputMicroOp ActionInputMicroOpPull | ActionInputMicroOpPeek | ActionInputMicroOpConstant
+---@alias ActionInputMicroOp ActionInputMicroOpPull | ActionInputMicroOpPeek | ActionInputMicroOpConstant | ActionInputMicroOpSignature
 
 ---@param n integer
 function M.input.pull(n)
   ---@type ActionInputMicroOp
   return {
     type = "pull",
+    amount = n,
+  }
+end
+
+---@param n integer
+function M.input.signature(n)
+  ---@type ActionInputMicroOp
+  return {
+    type = "signature",
     amount = n,
   }
 end
@@ -238,7 +251,7 @@ function M.draft_signature(n)
     name = "draft_signature",
     desc = "Draft " .. n .. " signature tokens.",
     microops = {
-      M.input.constant(n, Token.sig),
+      M.input.signature(n),
       M.output.draft(),
     },
   }

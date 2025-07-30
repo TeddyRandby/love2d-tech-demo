@@ -66,8 +66,41 @@ local PlayerBag = Components.bag(0.01, 0.2, Inputs.PlayerBag)
 local EnemyBag = Components.bag(-0.11, 0.2, Inputs.EnemyBag)
 
 local TokenSelector = Components.token_selector(0.5, 0.5)
-local PlayerBoard = Components.board(0.12, -Token.radius() * 3, Inputs.PlayerField, Inputs.PlayerExhausted)
-local EnemyBoard = Components.board(0.12, Token.radius() * 3, Inputs.EnemyField, Inputs.EnemyExhausted)
+local PlayerBoard = Components.board(0.12, 0.2, Inputs.PlayerField, Inputs.PlayerExhausted)
+local EnemyBoard = Components.board(-0.12 - 0.32, 0.2, Inputs.EnemyField, Inputs.EnemyExhausted)
+
+local PlayerProfile = function()
+  local str = Engine.player.player.type
+      .. " -- Lives: "
+      .. Engine.player.lives
+      .. "/"
+      .. Engine.player.player.battle_stats.lives
+      .. ". Power: "
+      .. Engine.player.power
+
+  View:text(str, 0.1, 0.01)
+end
+
+local EnemyProfile = Components.enemy(-0.2, 0.01)
+
+local function PlayerMoves(cb)
+  if cb then
+    return function()
+      for i, v in ipairs(Engine.player.moves) do
+        local move = Move[v]
+        View:move(move, 0.12 + (i - 1) * Move.width(), -0.01 - Move.height())
+        View:register(move, cb(i, move))
+      end
+    end
+  else
+    return function()
+      for i, v in ipairs(Engine.player.moves) do
+        local move = Move[v]
+        View:move(move, 0.12 + (i - 1) * Move.width(), -0.01 - Move.height())
+      end
+    end
+  end
+end
 
 ---@type table<SceneType, Scene>
 return {
@@ -90,10 +123,12 @@ return {
   drafting = {
     name = "drafting",
     layout = {
-      Components.enemy(-0.1, 0.01),
+      EnemyProfile,
       EnemyBag,
 
       Components.card_selector(0.5 - Card.width() - 0.03, 0.5 - (Card.height() / 2)),
+
+      PlayerProfile,
       PlayerBag,
       PlayerHandUp(),
     },
@@ -101,13 +136,19 @@ return {
   upgrading = {
     name = "upgrading",
     layout = {
-      Components.enemy(-0.1, 0.01),
+      EnemyProfile,
       EnemyBag,
 
+      PlayerProfile,
       PlayerBag,
       PlayerHandUp(function(i)
         return {
-          dragend = function()
+          dragend = function(x, y)
+            -- If we're above the hand play the card 
+            if y > View.normalize_y(0.5)then
+              return
+            end
+
             -- Play a random enemy card
             Engine.enemy:play()
 
@@ -130,9 +171,10 @@ return {
   choosing = {
     name = "choosing",
     layout = {
-      Components.enemy(-0.1, 0.01),
+      EnemyProfile,
       EnemyBag,
       TokenSelector,
+      PlayerProfile,
       PlayerBag,
       PlayerHandDown,
     },
@@ -140,32 +182,18 @@ return {
   battling = {
     name = "battling",
     layout = {
-      Components.enemy(-0.1, 0.01),
+      EnemyProfile,
       EnemyBoard,
       EnemyBag,
 
-      function()
-        local str = "Lives: "
-            .. Engine.player.lives
-            .. "/"
-            .. Engine.player.player.battle_stats.lives
-            .. ". Power: "
-            .. Engine.player.power
-        View:text(str, 0.01, -View.getFontSize() - 0.01)
-      end,
-
+      PlayerProfile,
       PlayerBag,
       PlayerBoard,
 
-      function()
-        for i, v in ipairs(Engine.player.moves) do
-          View:move(require("data.move.types")[v], -Move.width() - 0.1, -0.4 + i * Move.height())
-        end
-      end,
+      PlayerMoves(),
 
-      Components.button(-0.11, -0.21, 0.1, 0.2, "Fight!", function()
+      Components.button(-0.11 - Move.width(), -Move.height(), Move.width(), Move.height(), "Draw", function()
         Engine:begin_round()
-
         if Engine.scene == "battling" then
           Engine:transition("round")
         end
@@ -175,47 +203,29 @@ return {
   round = {
     name = "round",
     layout = {
-      Components.enemy(-0.1, 0.01),
+      EnemyProfile,
       EnemyBoard,
       EnemyBag,
 
-      function()
-        local str = "Lives: " .. Engine.player.lives .. "/3. Power: " .. Engine.player.power
-        View:text(str, 0.01, View.normalize_y(-0.01) - love.graphics.getFont():getHeight())
-      end,
+      PlayerProfile,
+      PlayerBoard,
+      PlayerBag,
+      PlayerMoves(function(_, move)
+        return {
+          click = function(x, y)
+            if Engine.player:doable(move) then
+              Engine.player:domove(move)
+            end
+          end,
+        }
+      end),
 
-      Components.button(-0.11, -0.21, 0.1, 0.2, "Done", function()
+      Components.button(-0.11 - Move.width(), -Move.height(), Move.width(), Move.height(), "Done", function()
         Engine:end_round()
         if Engine.scene == "round" then
           Engine:transition("battling")
         end
       end),
-
-      PlayerBoard,
-      PlayerBag,
-
-      function()
-        for i, v in ipairs(Engine.player.moves) do
-          local move = require("data.move.types")[v]
-          View:move(move, -Move.width() - 0.1, -0.4 + i * Move.height())
-          View:register(move, {
-            receive = function(x, y, t)
-              if Move.needs(move, t, Engine.player.token_states[t]) then
-                Engine.player:exhaust({ t })
-                move.effect(Engine.player)
-              end
-            end,
-          })
-        end
-      end,
-
-      -- Components.board(0.01, (-Token.radius()) * 3, Inputs.PlayerField, Inputs.PlayerExhausted, function(_, v)
-      --   if Engine.player:useful(v) then
-      --     return {
-      --       dragend = function() end,
-      --     }
-      --   end
-      -- end),
     },
   },
 }
