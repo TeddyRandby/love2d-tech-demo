@@ -1,8 +1,8 @@
 ---@alias EffectType "bomb_explode" | "corruption_hit" | "ooze_exhaust_donate" | "ooze_opponent_draw_donate" | "ooze_draft_opponent_does_too" | "draft_coin_draft_ooze"
 ---
----@alias TokenEventCause "draft" | "discard" | "donate" | "draw" | "exhaust"
----@alias CardEventCause CardType
----@alias EffectCause TokenEventCause | CardEventCause
+---@alias TokenEventType "draft" | "discard" | "donate" | "draw" | "exhaust" | "activate"
+---@alias CardEventType CardType
+---@alias EffectCause TokenEventType | CardEventType
 ---
 ---@class Effect
 ---@field type EffectType
@@ -88,15 +88,6 @@ return {
     should = token_is("ooze"),
     effect = function(self, token)
       self:opponent():draft({ Token.create("ooze") })
-    end,
-  },
-  {
-    type = "draft_coin_draft_ooze",
-    active = true,
-    cause = "draft",
-    should = Token.isCoin,
-    effect = function(g)
-      g:draft({ Token.create("ooze") })
     end,
   },
 }

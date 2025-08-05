@@ -221,3 +221,61 @@ function table.count(t, f)
 
 	return count
 end
+
+---@generic T
+---@param t T[]
+---@param start? integer
+---@param len? integer
+---@return T[]
+function table.slice(t, start, len)
+  start = start or 1
+
+  if start < 0 then
+    start = math.max(#t + start, 0)
+  end
+
+  len = len or #t - start
+
+  local tmp = {}
+
+	for i = start, start + len do
+    table.insert(tmp, t[i])
+	end
+
+  return tmp
+end
+
+---@generic T
+---@param n integer
+---@param f? fun(): T
+---@return T[]
+function table.of(n, f)
+  local tmp = {}
+
+  for _ = 1, n do
+    table.insert(tmp, f and f() or nil)
+  end
+
+  return tmp
+end
+
+---@generic T
+---@generic K
+---@param t T[]
+---@param f fun(v): K
+---@return table<K, T[]>
+function table.group(t, f)
+  local tmp = {}
+
+  for _, v in ipairs(t) do
+    local k = f(v)
+
+    if tmp[k] then
+      table.insert(tmp[k], v)
+    else
+      tmp[k] = {v}
+    end
+  end
+
+  return tmp
+end
