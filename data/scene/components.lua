@@ -5,6 +5,7 @@ local M = {}
 local Card = require("data.card")
 local Token = require("data.token")
 local Icon = require("data.icon")
+local Move = require("data.move")
 
 ---@param x number
 ---@param y number
@@ -185,6 +186,74 @@ function M.button(x, y, w, h, text, f)
 		View:button(x, y, target, f)
 	end
 end
+
+---@param x integer
+---@param y integer
+function M.move_selector(x, y)
+	---@type table<Move, boolean>?
+	local moves = nil
+
+	---@type Move[]?
+	local movelist = nil
+
+	local btndata = { 0.1, 0.1, text = "confirm" }
+
+	---@type Component
+	return function()
+		if moves and movelist then
+			local movew = View.normalize_x(Move.width())
+
+			local thisx = View.normalize_x(x)
+			local thisy = View.normalize_y(y)
+			local n = #movelist
+
+			thisx = thisx - (n * movew * 2) - ((n - 1) * 5)
+
+			local detail = nil
+
+			for v, is_chosen in pairs(moves) do
+				if is_chosen then
+					View:move(v, thisx, thisy - Move.width(), v)
+				else
+					View:move(v, thisx, thisy, v)
+				end
+
+				if View:is_hovering(v) then
+					local details_x = thisx + movew * 4 + View.normalize_x(0.02)
+
+					if thisx > View.normalize_x(0.5) then
+						details_x = thisx - View.normalize_x(0.22)
+					end
+
+					detail = function()
+						View:details(v.desc, tostring(v) .. "hand", details_x, thisy)
+					end
+				end
+
+				View:register(v, {
+					click = function()
+						View:cancel_tween(v)
+						moves[v] = not moves[v]
+					end,
+				})
+
+				thisx = thisx + movew * 4 + 10
+			end
+
+			if detail then
+				detail()
+			end
+		else
+			-- Will get drawn on the next frame
+			moves = {}
+			movelist = Engine.player:
+			for _, v in ipairs(movelist) do
+				moves[v] = false
+			end
+		end
+	end
+end
+
 
 ---@param x number
 ---@param y number

@@ -42,6 +42,7 @@ local Token = require("data.token")
 ---@field pull? fun(self: GameplayData, n: integer): Token[]
 ---@field pull_into? fun(self: GameplayData, n: integer, tab?: Token[]): Token[]
 ---@field fish? fun(self: GameplayData, n: integer, tab?: Card[]): Card[]
+---@field levelup? fun(self: GameplayData, n: integer): Move[]
 ---@field choose? fun(self: GameplayData)
 ---@field useful? fun(self: GameplayData, t: Token, s?: TokenState): boolean
 ---@field doable? fun(self: GameplayData, move: Move): boolean
@@ -191,13 +192,12 @@ local function inherit(m)
 	end
 
 	function m:draft(ts)
-
 		for _, v in ipairs(ts) do
 			table.insert(self.token_list, v)
 
 			self.token_states[v] = "bag"
 
-      Engine:log_tokenevent("draft", v, self)
+			Engine:log_tokenevent("draft", v, self)
 		end
 
 		for _, v in ipairs(ts) do
@@ -208,7 +208,7 @@ local function inherit(m)
 	function m:exhaust(ts)
 		for _, v in ipairs(ts) do
 			self.token_states[v] = "exhausted"
-      Engine:log_tokenevent("exhaust", v, self)
+			Engine:log_tokenevent("exhaust", v, self)
 		end
 
 		for _, v in ipairs(ts) do
@@ -218,9 +218,9 @@ local function inherit(m)
 
 	function m:activate(ts)
 		for _, v in ipairs(ts) do
-      assert(self.token_states[v] == "exhausted")
+			assert(self.token_states[v] == "exhausted")
 			self.token_states[v] = "active"
-      Engine:log_tokenevent("activate", v, self)
+			Engine:log_tokenevent("activate", v, self)
 		end
 
 		for _, v in ipairs(ts) do
@@ -240,7 +240,7 @@ local function inherit(m)
 				"Expected token in bag, found: " .. v.type .. " in " .. self.token_states[v]
 			)
 			self.token_states[v] = "active"
-      Engine:log_tokenevent("draw", v, self)
+			Engine:log_tokenevent("draw", v, self)
 		end
 
 		for _, v in ipairs(drawn) do
@@ -251,7 +251,7 @@ local function inherit(m)
 	function m:discard(ts)
 		for _, v in ipairs(ts) do
 			self.token_states[v] = nil
-      Engine:log_tokenevent("discard", v, self)
+			Engine:log_tokenevent("discard", v, self)
 		end
 
 		for _, v in ipairs(ts) do
@@ -261,17 +261,16 @@ local function inherit(m)
 
 	function m:donate(ts, to)
 		for _, donated in ipairs(ts) do
+			for i, v in ipairs(self.token_list) do
+				if donated == v then
+					table.remove(self.token_list, i)
+					-- Early exit if we find the token
+					goto found
+				end
+			end
 
-      for i, v in ipairs(self.token_list) do
-        if donated == v then
-          table.remove(self.token_list, i)
-          -- Early exit if we find the token
-          goto found
-        end
-      end
-
-      ::found::
-      Engine:log_tokenevent("donate", donated, self)
+			::found::
+			Engine:log_tokenevent("donate", donated, self)
 			self.token_states[donated] = nil
 		end
 
@@ -292,7 +291,7 @@ local function inherit(m)
 		local could_pay_with = Move.matches_cost(move, self.token_list, self.token_states)
 		assert(#could_pay_with >= move.cost.amount)
 
-    Engine:log_moveevent(move, self)
+		Engine:log_moveevent(move, self)
 
 		if move.cost.pay_by == "exhaust" then
 			self:exhaust(table.take(could_pay_with, move.cost.amount))
@@ -361,8 +360,8 @@ local function inherit(m)
 			return c.microops
 		end)
 
-    -- Log this card as played in the event log.
-    Engine:log_cardevent(card, self)
+		-- Log this card as played in the event log.
+		Engine:log_cardevent(card, self)
 
 		-- Now we can play
 		self:__play()
@@ -447,7 +446,7 @@ function M.player(class)
 	return inherit({
 		CardTable = construct_droptable(Engine.CardTypes, class.card_table),
 		TokenTable = construct_droptable(Engine.TokenTypes, class.token_table),
-    MoveTable = construct_droptable(Engine.MoveTypes, class.move_table),
+		MoveTable = construct_droptable(Engine.MoveTypes, class.move_table),
 		power = 0,
 		drawn = class.battle_stats.draw,
 		lives = class.battle_stats.lives,
@@ -472,7 +471,7 @@ function M.enemy(enemy)
 		moves = enemy.moves,
 		CardTable = construct_droptable(Engine.CardTypes, enemy.card_table),
 		TokenTable = construct_droptable(Engine.TokenTypes, enemy.token_table),
-    MoveTable = construct_droptable(Engine.MoveTypes, enemy.move_table),
+		MoveTable = construct_droptable(Engine.MoveTypes, enemy.move_table),
 		drawn = enemy.battle_stats.draw,
 		power = 0,
 		lives = enemy.battle_stats.lives,

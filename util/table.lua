@@ -1,3 +1,10 @@
+if not table.unpack then
+  -- Workaround for lua versions/deprecations
+  assert(unpack, "Expected global unpack when table.unpack is unavailable")
+  table.unpack = unpack
+end
+
+
 ---@generic T
 ---@generic X
 ---@param src T[]
