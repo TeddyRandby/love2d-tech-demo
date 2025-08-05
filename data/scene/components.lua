@@ -246,7 +246,7 @@ function M.move_selector(x, y)
 		else
 			-- Will get drawn on the next frame
 			moves = {}
-			movelist = Engine.player:
+			movelist = Engine.player:levelup(2)
 			for _, v in ipairs(movelist) do
 				moves[v] = false
 			end
