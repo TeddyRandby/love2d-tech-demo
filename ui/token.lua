@@ -29,7 +29,7 @@ local TokenMIDDLE = love.graphics.newQuad(M.pixelw * 2, 0, M.pixelw, M.pixelh, T
 function M.draw(token, x, y, s)
 	s = s or 1.0
 
-	local sr = UI.sx()
+	local sr = UI.sx() * s
 
 	local sx = sr
 	local sy = sr

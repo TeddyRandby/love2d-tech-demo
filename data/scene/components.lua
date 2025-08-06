@@ -71,7 +71,7 @@ function M.bag(x, y, prefix, t, f)
 
 		View:bag(t, id, thisx, thisy, 0, thisy)
 
-    thisx = thisx + UI.realize_x(UI.width(1))
+    thisx = thisx + UI.realize_x(UI.width(2))
     thisy = thisy + UI.realize_y(UI.height(2))
 
 		for _, ttype in ipairs(Engine.TokenTypes) do
@@ -207,14 +207,14 @@ function M.move_selector(x, y)
 					View:move(v, thisx, thisy, v)
 
 					if View:is_hovering(v) then
-						local details_x = thisx + movew + 0.02
+						local details_x = thisx + movew + UI.realize_x(0.02)
 
-						if thisx > 0.5 then
-							details_x = thisx - 0.22
-						end
+						-- if thisx > 0.5 then
+						-- 	details_x = thisx - 0.22
+						-- end
 
 						detail = function()
-							View:details(v.desc, tostring(v) .. "hand", details_x, y)
+							View:details(v.desc, tostring(v) .. "hand", details_x, thisy)
 						end
 					end
 
@@ -238,49 +238,58 @@ function M.move_selector(x, y)
 			end
 		end
 
-		-- if effects and effectlist then
-		-- 	local movew = View.normalize_x(Move.width())
-		--
-		-- 	local thisx = x
-		-- 	local thisy = y + Move.height()
-		--
-		-- 	for v, is_chosen in pairs(effects) do
-		-- 		if not is_chosen then
-		-- 			View:move(v, thisx, thisy, v)
-		--
-		-- 			if View:is_hovering(v) then
-		-- 				local details_x = thisx + Move.width() + 0.02
-		--
-		-- 				if thisx > 0.5 then
-		-- 					details_x = thisx - 0.22
-		-- 				end
-		--
-		-- 				detail = function()
-		-- 					View:details("Cost: 1 coin\n" .. v.desc, tostring(v) .. "shop", details_x, thisy)
-		-- 				end
-		-- 			end
-		--
-		-- 			View:register(v, {
-		-- 				click = function()
-		-- 					local bag = Engine.player:bag()
-		--
-		-- 					for _, coin in ipairs(bag) do
-		-- 						if coin.type == "coin" then
-		-- 							Engine.player:learn(v)
-		-- 							Engine.player:discard({ coin })
-		-- 							Engine.player:draft({ Token.create("lint") })
-		--
-		-- 							effects[v] = not effects[v]
-		-- 							return
-		-- 						end
-		-- 					end
-		-- 				end,
-		-- 			})
-		-- 		end
-		--
-		-- 		thisx = thisx + Move.width()
-		-- 	end
-		-- end
+
+		if effects and effectlist then
+			local thisx, thisy = UI.realize_xy(x, y)
+
+      thisy = thisy + UI.realize_y(UI.height(2) + UI.height(UI.skillbox.pixelh))
+
+			local movew = UI.skill.getRealizedDim()
+
+			local pad = UI.realize_x(UI.width(2))
+
+			View:movelist("shop", "effectshop", thisx, thisy)
+
+			thisx = thisx + UI.realize_x(UI.width(4.2))
+			thisy = thisy + UI.realize_y(UI.height(11))
+
+			for v, is_chosen in pairs(effects) do
+				if not is_chosen then
+
+---@diagnostic disable-next-line: param-type-mismatch
+					View:move(v, thisx, thisy, v)
+
+					if View:is_hovering(v) then
+						local details_x = thisx + movew + UI.realize_x(0.02)
+
+						-- if thisx > 0.5 then
+						-- 	details_x = thisx - 0.22
+						-- end
+
+						detail = function()
+							View:details(v.desc, tostring(v) .. "hand", details_x, thisy)
+						end
+					end
+
+					View:register(v, {
+						click = function()
+							effects[v] = not effects[v]
+
+							for _, tok in ipairs(Engine.player:bag()) do
+								if Token.isCoin(tok) then
+									Engine.player:discard({ tok })
+									Engine.player:draft({ Token.create("lint") })
+									Engine.player:learn(v)
+                  return
+								end
+							end
+						end,
+					})
+				end
+
+				thisx = thisx + movew + pad
+			end
+		end
 
 		if detail then
 			detail()
@@ -291,7 +300,7 @@ function M.move_selector(x, y)
 			moves = {}
 			effects = {}
 
-			movelist, effectlist = Engine.player:levelup(5)
+			movelist, effectlist = Engine.player:levelup(3)
 
 			for _, v in ipairs(movelist) do
 				moves[v] = false

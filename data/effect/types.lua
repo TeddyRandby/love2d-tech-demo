@@ -78,7 +78,7 @@ return {
 		icon = { "ooze", "enemy_draw", "draft" },
 		should = token_is("ooze"),
 		effect = function(self, token)
-			self:donate({ token }, self:opponent())
+			self:opponent():donate({ token }, self)
 		end,
 	},
 	{

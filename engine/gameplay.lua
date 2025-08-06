@@ -19,7 +19,7 @@ local Token = require("data.token")
 ---@field token_stack Token[][]
 ---@field token_microops ActionMicroOp[]
 ---@field choose_impl fun(self:GameplayData)
----@field moves MoveType[]
+---@field moves Move[]
 ---@field player? Class
 ---@field enemy? Enemy
 ---@field __fire? fun(self: GameplayData, e: TokenEventType, t: Token)
@@ -171,16 +171,16 @@ local function inherit(m)
 						if type(h.should) ~= "function" or h.should(self, t) then
 							print("[EFFECT] ", h.cause, h.type .. ": " .. t.type)
 							h.effect(self, t)
-
-              -- If the cause doesn't begin with opponent,
-              -- Then we fire an opponent event.
-              if not e:match("^opponent") then
-                self:opponent():__fire("opponent_" .. e, t)
-              end
 						end
 					end
 				end
 			end
+		end
+
+		-- If the cause doesn't begin with opponent,
+		-- Then we fire an opponent event.
+		if not e:match("^opponent") then
+			self:opponent():__fire("opponent_" .. e, t)
 		end
 	end
 
@@ -247,7 +247,6 @@ local function inherit(m)
 
 	function m:discard(ts)
 		for _, v in ipairs(ts) do
-
 			for i, discarded in ipairs(self.token_list) do
 				if discarded == v then
 					table.remove(self.token_list, i)
@@ -258,7 +257,7 @@ local function inherit(m)
 
 			::found::
 			self.token_states[v] = nil
-			Engine:log_tokenevent("discard", v, self)
+      Engine:log_tokenevent("discard", v, self)
 		end
 
 		for _, v in ipairs(ts) do
@@ -277,8 +276,8 @@ local function inherit(m)
 			end
 
 			::found::
-			Engine:log_tokenevent("donate", donated, self)
 			self.token_states[donated] = nil
+      Engine:log_tokenevent("donate", donated, self)
 		end
 
 		for _, donated in ipairs(ts) do
@@ -323,19 +322,19 @@ local function inherit(m)
 
 	function m:learn(skill)
 		if Move[skill.type] then
-      table.insert(self.moves, skill.type)
+			table.insert(self.moves, skill)
 		elseif Effect[skill.type] then
-      ---@type Effect
-      local eff = skill
+			---@type Effect
+			local eff = skill
 
-      Effect.insert(self.event_handlers, eff)
+			Effect.insert(self.event_handlers, eff)
 		else
 			assert(false, "Unknown skill " .. skill.type)
 		end
 	end
 
 	function m:domoves(moves)
-		moves = moves or Move.array_of(moves or self.moves)
+		moves = moves or self.moves
 		for _, move in ipairs(moves) do
 			while self:doable(move) do
 				self:domove(move)
@@ -355,8 +354,7 @@ local function inherit(m)
 		-- A token is only useful a we have a move
 		-- available which requires it.
 		return not not table.find(self.moves, function(move)
-			local movedata = Move[move]
-			return Move.needs(movedata, t, s)
+			return Move.needs(move, t, s)
 		end)
 	end
 
@@ -477,7 +475,7 @@ function M.player(class)
 		token_stack = {},
 		token_microops = {},
 		event_handlers = Effect.table_of(class.effects),
-		moves = class.moves,
+		moves = Move.array_of(class.moves),
 		choose_impl = function()
 			return Engine:transition("choosing")
 		end,
@@ -488,7 +486,7 @@ end
 ---@param enemy Enemy
 function M.enemy(enemy)
 	return inherit({
-		moves = enemy.moves,
+		moves = Move.array_of(enemy.moves),
 		CardTable = construct_droptable(Engine.CardTypes, enemy.card_table),
 		TokenTable = construct_droptable(Engine.TokenTypes, enemy.token_table),
 		MoveTable = construct_droptable(Engine.MoveTypes, enemy.move_table),

@@ -11,7 +11,7 @@ end
 ---@param types MoveType[]
 function M.array_of(types)
 	return table.map(types, function(t)
-		return M[t]
+		return table.copy(M[t])
 	end)
 end
 
