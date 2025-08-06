@@ -11,8 +11,8 @@ local Token = require("data.token")
 ---@field TokenTable Token[]
 ---@field CardTable Card[]
 ---@field MoveTable Move[]
+---@field EffectTable Move[]
 ---@field event_handlers table<EffectCause, Effect[]>
----@field oppevent_handlers table<EffectCause, Effect[]>
 ---@field token_list Token[]
 ---@field token_states table<Token, TokenState>
 ---@field hand Card[]
@@ -42,12 +42,13 @@ local Token = require("data.token")
 ---@field pull? fun(self: GameplayData, n: integer): Token[]
 ---@field pull_into? fun(self: GameplayData, n: integer, tab?: Token[]): Token[]
 ---@field fish? fun(self: GameplayData, n: integer, tab?: Card[]): Card[]
----@field levelup? fun(self: GameplayData, n: integer): Move[]
+---@field levelup? fun(self: GameplayData, n: integer): Move[], Effect[]
 ---@field choose? fun(self: GameplayData)
 ---@field useful? fun(self: GameplayData, t: Token, s?: TokenState): boolean
 ---@field doable? fun(self: GameplayData, move: Move): boolean
 ---@field domove? fun(self: GameplayData, move: Move)
 ---@field domoves? fun(self: GameplayData, moves?: Move[])
+---@field learn? fun(self: GameplayData, skill: Move | Effect)
 ---@field draw? fun(self: GameplayData, n: integer?)
 ---@field draft? fun(self: GameplayData, ts: Token[])
 ---@field exhaust? fun(self: GameplayData, ts: Token[])
@@ -112,6 +113,11 @@ local function inherit(m)
 		return table.replacement_sample(self.CardTable, n, tab, table.copy)
 	end
 
+	function m:levelup(n)
+		return table.replacement_sample(self.MoveTable, n, {}, table.copy),
+			table.replacement_sample(self.EffectTable, n, {}, table.copy)
+	end
+
 	function m:hit()
 		self.lives = self.lives - 1
 	end
@@ -157,6 +163,7 @@ local function inherit(m)
 
 	function m:__fire(e, t)
 		local handlers = self.event_handlers[e]
+
 		if handlers then
 			for _, h in ipairs(handlers) do
 				if h.active then
@@ -164,27 +171,17 @@ local function inherit(m)
 						if type(h.should) ~= "function" or h.should(self, t) then
 							print("[EFFECT] ", h.cause, h.type .. ": " .. t.type)
 							h.effect(self, t)
+
+              -- If the cause doesn't begin with opponent,
+              -- Then we fire an opponent event.
+              if not e:match("^opponent") then
+                self:opponent():__fire("opponent_" .. e, t)
+              end
 						end
 					end
 				end
 			end
 		end
-
-		local opphandlers = self:opponent().oppevent_handlers[e]
-		if opphandlers then
-			for _, h in ipairs(opphandlers) do
-				if h.active then
-					if h.should then
-						if type(h.should) ~= "function" or h.should(self, t) then
-							print("[OPPEFFECT] ", h.cause, h.type .. ": " .. t.type)
-							h.effect(self, t)
-						end
-					end
-				end
-			end
-		end
-
-		print("[EFFECT] ", "FIRE", e, handlers and #handlers, opphandlers and #opphandlers)
 	end
 
 	function m:choose()
@@ -250,6 +247,16 @@ local function inherit(m)
 
 	function m:discard(ts)
 		for _, v in ipairs(ts) do
+
+			for i, discarded in ipairs(self.token_list) do
+				if discarded == v then
+					table.remove(self.token_list, i)
+					-- Early exit if we find the token
+					goto found
+				end
+			end
+
+			::found::
 			self.token_states[v] = nil
 			Engine:log_tokenevent("discard", v, self)
 		end
@@ -312,6 +319,19 @@ local function inherit(m)
 		end
 
 		move.effect(self)
+	end
+
+	function m:learn(skill)
+		if Move[skill.type] then
+      table.insert(self.moves, skill.type)
+		elseif Effect[skill.type] then
+      ---@type Effect
+      local eff = skill
+
+      Effect.insert(self.event_handlers, eff)
+		else
+			assert(false, "Unknown skill " .. skill.type)
+		end
 	end
 
 	function m:domoves(moves)
@@ -447,6 +467,7 @@ function M.player(class)
 		CardTable = construct_droptable(Engine.CardTypes, class.card_table),
 		TokenTable = construct_droptable(Engine.TokenTypes, class.token_table),
 		MoveTable = construct_droptable(Engine.MoveTypes, class.move_table),
+		EffectTable = construct_droptable(Engine.EffectTypes, class.effect_table),
 		power = 0,
 		drawn = class.battle_stats.draw,
 		lives = class.battle_stats.lives,
@@ -456,7 +477,6 @@ function M.player(class)
 		token_stack = {},
 		token_microops = {},
 		event_handlers = Effect.table_of(class.effects),
-		oppevent_handlers = Effect.table_of(class.oppeffects),
 		moves = class.moves,
 		choose_impl = function()
 			return Engine:transition("choosing")
@@ -472,6 +492,7 @@ function M.enemy(enemy)
 		CardTable = construct_droptable(Engine.CardTypes, enemy.card_table),
 		TokenTable = construct_droptable(Engine.TokenTypes, enemy.token_table),
 		MoveTable = construct_droptable(Engine.MoveTypes, enemy.move_table),
+		EffectTable = construct_droptable(Engine.EffectTypes, enemy.effect_table),
 		drawn = enemy.battle_stats.draw,
 		power = 0,
 		lives = enemy.battle_stats.lives,
@@ -481,7 +502,6 @@ function M.enemy(enemy)
 		token_stack = {},
 		token_microops = {},
 		event_handlers = Effect.table_of(enemy.effects),
-		oppevent_handlers = Effect.table_of(enemy.oppeffects),
 		choose_impl = function(self)
 			local not_chosen, chosen = self:pop(), {}
 

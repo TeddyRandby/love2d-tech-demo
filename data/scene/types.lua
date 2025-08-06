@@ -1,4 +1,4 @@
----@alias SceneType "main" | "drafting" | "upgrading" | "battling" | "choosing" | "gameover" | "round" | "shopping"
+---@alias SceneType "main" | "drafting" | "upgrading" | "battling" | "choosing" | "gameover" | "round"
 
 ---@class Scene
 ---@field name SceneType
@@ -6,8 +6,8 @@
 
 local Components = require("data.scene.components")
 local Card = require("data.card")
-local Token = require("data.token")
 local Move = require("data.move")
+local Bag = require("data.bag")
 
 local Inputs = {}
 
@@ -22,7 +22,7 @@ function Inputs.PlayerBag()
 end
 
 ---@return Token[]
-function Inputs.PlayerField()
+function Inputs.PlayerActive()
 	return Engine.player:active()
 end
 
@@ -42,7 +42,7 @@ function Inputs.EnemyBag()
 end
 
 ---@return Token[]
-function Inputs.EnemyField()
+function Inputs.EnemyActive()
 	return Engine.enemy:active()
 end
 
@@ -62,12 +62,15 @@ end
 
 local PlayerHandDown = Components.hand(0.01 + 0.2, 1, Inputs.PlayerHand)
 
-local PlayerBag = Components.bag(0.01, 0.2, "Player", Inputs.PlayerBag)
-local EnemyBag = Components.bag(-0.11, 0.2, "Enemy", Inputs.EnemyBag)
+local PlayerBag = Components.bag(0.01, 0.6, "Player", "bag", Inputs.PlayerBag)
+local PlayerActive = Components.bag(0.01, 0.4, "Player", "active", Inputs.PlayerActive)
+local PlayerExhausted = Components.bag(0.01, 0.2, "Player", "exhausted", Inputs.PlayerExhausted)
+
+local EnemyBag = Components.bag(-0.41, 0.6, "Enemy", "bag", Inputs.EnemyBag)
+local EnemyActive = Components.bag(-0.41, 0.4, "Enemy", "active", Inputs.EnemyActive)
+local EnemyExhausted = Components.bag(-0.41, 0.2, "Enemy", "exhausted", Inputs.EnemyExhausted)
 
 local TokenSelector = Components.token_selector(0.5, 0.5)
-local PlayerBoard = Components.board(0.12, 0.2, Inputs.PlayerField, Inputs.PlayerExhausted)
-local EnemyBoard = Components.board(-0.12 - 0.32, 0.2, Inputs.EnemyField, Inputs.EnemyExhausted)
 
 local PlayerProfile = function()
 	local str = Engine.player.player.type
@@ -83,37 +86,60 @@ end
 
 local EnemyProfile = Components.enemy(-0.2, 0.01)
 
+local NormalMoveWidth, NormalMoveHeight = UI.skill.getNormalizedDim()
+
 ---@param x number
 ---@param y number
 ---@param cb? fun(i: integer, move: Move): table<UserEvent, function>
----@param f? fun(move: Move): boolean
-local function MovesComponent(x, y, cb, f)
+local function MovesComponent(x, y, cb)
 	return function()
 		---@type Move[]
 		local moves = table.map(Engine.player.moves, function(move_type)
 			return Move[move_type]
 		end)
 
-		if f then
-			moves = table.filter(moves, f)
-		end
-
 		local detail = nil
 
+		View:movelist("moves", "Playermoves", x, y)
+
+		local thisx = x + UI.width(5)
+		local thisy = y + UI.height(11)
+
 		for i, move in ipairs(moves) do
-			local thisx = x + (i - 1) * Move.width()
-			View:move(move, thisx, y)
+			View:move(move, thisx, thisy, move)
 
 			if View:is_hovering(move) then
+				local detailx = thisx + NormalMoveWidth + UI.width(4)
 				detail = function()
-					View:details(move.desc, move.desc, thisx + Move.width() + 0.01, y)
+					View:details(move.desc, tostring(move), detailx, thisy)
 				end
 			end
 
 			if cb then
 				View:register(move, cb(i, move))
 			end
+
+			thisx = thisx + NormalMoveWidth + UI.width(5)
 		end
+
+		-- thisx = x
+		-- thisy = y + Move.height() + 0.01
+
+		-- for _, effects in pairs(Engine.player.event_handlers) do
+		-- 	for _, effect in ipairs(effects) do
+		-- 		---@diagnostic disable-next-line: param-type-mismatch
+		-- 		View:move(effect, thisx, thisy, effect)
+		--
+		-- 		if View:is_hovering(effect) then
+		-- 			local x = thisx
+		-- 			detail = function()
+		-- 				View:details(effect.desc, effect.desc, x + Move.width() + 0.01, thisy)
+		-- 			end
+		-- 		end
+		--
+		-- 		thisx = thisx + Move.width()
+		-- 	end
+		-- end
 
 		if detail then
 			detail()
@@ -123,9 +149,7 @@ end
 
 ---@param cb? fun(i: integer, move: Move): table<UserEvent, function>
 local function PlayerMoves(cb)
-	return MovesComponent(0.12, -0.01 - Move.height(), cb, function(move)
-		return move.cost.state ~= "bag"
-	end)
+	return MovesComponent(0.1, 0.2, cb)
 end
 
 local BattleButton = Components.button(0.4, -Card.height(), 0.1, 0.1, "Battle", function()
@@ -156,11 +180,16 @@ return {
 		name = "drafting",
 		layout = {
 			EnemyProfile,
-			EnemyBag,
+			Components.bag(
+				-0.01 - Bag.width(),
+				0.5 + (Card.height() / 2) + Bag.height() + 0.05,
+				"Enemy",
+				"bag",
+				Inputs.EnemyBag
+			),
 
 			PlayerProfile,
-			PlayerBag,
-
+			Components.bag(0.01, 0.5 + (Card.height() / 2) + Bag.height() + 0.05, "Player", "bag", Inputs.PlayerBag),
 			Components.card_selector(0.5 - Card.width() - 0.03, 0.5 - (Card.height() / 2)),
 
 			PlayerHandUp(),
@@ -174,7 +203,7 @@ return {
 
 			History,
 
-			MovesComponent(0.2, 0.5 - Move.height() / 2, function(i, move)
+			MovesComponent(0.1, 0.2, function(i, move)
 				return {
 					click = function()
 						if Engine.player:doable(move) then
@@ -182,13 +211,9 @@ return {
 						end
 					end,
 				}
-			end, function(move)
-				return move.cost.state == "bag"
 			end),
 
-      function()
-
-      end,
+			Components.move_selector(0.5, 0.5),
 
 			PlayerProfile,
 			PlayerBag,
@@ -233,7 +258,8 @@ return {
 		name = "battling",
 		layout = {
 			EnemyProfile,
-			EnemyBoard,
+			EnemyActive,
+			EnemyExhausted,
 			EnemyBag,
 
 			History,
@@ -242,28 +268,38 @@ return {
 
 			PlayerProfile,
 			PlayerBag,
-			PlayerBoard,
+			PlayerActive,
+			PlayerExhausted,
 
-			Components.button(-0.11 - Move.width(), -Move.height(), Move.width(), Move.height(), "Draw", function()
-				Engine:begin_round()
-				if Engine.scene == "battling" then
-					Engine:transition("round")
+			Components.button(
+				-0.11 - NormalMoveWidth,
+				-NormalMoveHeight,
+				NormalMoveWidth,
+				NormalMoveHeight,
+				"Draw",
+				function()
+					Engine:begin_round()
+					if Engine.scene == "battling" then
+						Engine:transition("round")
+					end
 				end
-			end),
+			),
 		},
 	},
 	round = {
 		name = "round",
 		layout = {
 			EnemyProfile,
-			EnemyBoard,
+			EnemyActive,
+			EnemyExhausted,
 			EnemyBag,
 
 			History,
 
 			PlayerProfile,
-			PlayerBoard,
 			PlayerBag,
+			PlayerActive,
+			PlayerExhausted,
 			PlayerMoves(function(_, move)
 				return {
 					click = function(x, y)
@@ -274,12 +310,19 @@ return {
 				}
 			end),
 
-			Components.button(-0.11 - Move.width(), -Move.height(), Move.width(), Move.height(), "Done", function()
-				Engine:end_round()
-				if Engine.scene == "round" then
-					Engine:transition("battling")
+			Components.button(
+				-0.11 - NormalMoveWidth,
+				-NormalMoveHeight,
+				NormalMoveWidth,
+				NormalMoveHeight,
+				"Done",
+				function()
+					Engine:end_round()
+					if Engine.scene == "round" then
+						Engine:transition("battling")
+					end
 				end
-			end),
+			),
 		},
 	},
 }

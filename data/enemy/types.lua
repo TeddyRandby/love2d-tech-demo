@@ -9,6 +9,7 @@
 ---@field token_table TokenDropTable
 ---@field card_table CardDropTable
 ---@field move_table MoveDropTable
+---@field effect_table EffectDropTable
 ---@field signature TokenType
 ---@field moves MoveType[]
 ---@field effects EffectType[]
@@ -33,6 +34,7 @@ return {
 			recruit = 1,
 		},
 		move_table = {},
+    effect_table = {},
 		moves = {
 			"minion_attack",
 		},

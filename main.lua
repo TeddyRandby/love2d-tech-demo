@@ -1,5 +1,6 @@
 require("util")
 
+UI = require("ui")
 View = require("view")
 Engine = require("engine")
 

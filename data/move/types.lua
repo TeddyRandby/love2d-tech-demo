@@ -21,7 +21,7 @@ local Token = require("data.token")
 return {
 	{
 		type = "minion_attack",
-		desc = "Attack your opponent!",
+		desc = "Exhaust a minion token to attack your opponent!",
 		icon = { "sword" },
 		cost = {
 			type = Token.isMinion,
@@ -35,7 +35,7 @@ return {
 	},
 	{
 		type = "ooze_shop_draft_ooze",
-		desc = "Draft an ooze.",
+		desc = "Spend a coin while upgrading to draft an ooze.",
 		icon = { "ooze", "draft" },
 		cost = {
 			amount = 1,

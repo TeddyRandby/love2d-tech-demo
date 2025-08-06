@@ -13,6 +13,7 @@ local Class = require("data.class")
 ---@field CardTypes Card[]
 ---@field SceneTypes table<string, Scene>
 ---@field MoveTypes Move[]
+---@field EffectTypes Effect[]
 ---@field player GameplayData?
 ---@field enemy GameplayData?
 ---@field time number
@@ -28,6 +29,7 @@ local M = {
 	TokenTypes = require("data.token.types"),
 	CardTypes = require("data.card.types"),
 	EnemyTypes = require("data.enemy.types"),
+	EffectTypes = require("data.effect.types"),
 
 	player = nil,
 	enemy = nil,

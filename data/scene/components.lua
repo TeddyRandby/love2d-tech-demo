@@ -4,8 +4,6 @@ local M = {}
 
 local Card = require("data.card")
 local Token = require("data.token")
-local Icon = require("data.icon")
-local Move = require("data.move")
 
 ---@param x number
 ---@param y number
@@ -46,7 +44,7 @@ function M.history(x, y)
 				assert(false, "Unhandled event type")
 			end
 
-			thisx = thisx + Icon.width() + 0.01
+			thisx = thisx + UI.icon.getNormalizedDim() + 0.01
 		end
 	end
 end
@@ -54,8 +52,9 @@ end
 ---@param x number
 ---@param y number
 ---@param prefix string
+---@param t "active" | "bag" | "exhausted"
 ---@param f fun(): Token[]
-function M.bag(x, y, prefix, f)
+function M.bag(x, y, prefix, t, f)
 	---@type Component
 	return function()
 		local ts = f()
@@ -64,41 +63,27 @@ function M.bag(x, y, prefix, f)
 			return t.type
 		end)
 
-		local thisy = y
+		local thisx = UI.realize_x(x)
+		local thisy = UI.realize_y(y)
+		local id = prefix .. t
+
+		local pixelsz = UI.realize_x(UI.width(0.75))
+
+		View:bag(t, id, thisx, thisy, 0, thisy)
+
+    thisx = thisx + UI.realize_x(UI.width(1))
+    thisy = thisy + UI.realize_y(UI.height(2))
+
 		for _, ttype in ipairs(Engine.TokenTypes) do
-			local id = prefix .. ttype.type
 			local v = grouped[ttype.type] or {}
 
 			if #v > 0 then
-				View:bag(v, id, x, thisy, 0, thisy)
-
-				local _, hovering_at_all = View:is_hovering(id)
-
-				if hovering_at_all then
-					local body = #v .. " " .. ttype.type .. " tokens."
-          --- Dont like this hack
-					if prefix == "Enemy" then
-						View:details(body, prefix .. body, x - 0.2, thisy)
-					else
-						View:details(body, prefix .. body, x + 0.1, thisy)
-					end
-				end
-
-				-- TODO: If our y coordinate wraps over one, we have to fix that
-				-- and wrap properly.
 				for _, token in ipairs(v) do
-					View:token(
-						token,
-						x + 4 * (0.06 / 16),
-						thisy + 3 * (0.06 * (love.graphics.getWidth() / love.graphics.getHeight()) / 16),
-						0.5,
-						0,
-						0.5
-					)
+					View:token(token, thisx, thisy, 0.5, 0, 0.5)
+
+					thisx = thisx + pixelsz
 				end
 			end
-
-			thisy = thisy + 0.08
 		end
 	end
 end
@@ -116,11 +101,10 @@ end
 function M.hand(x, y, f, card_ueh)
 	---@type Component
 	return function()
-		local handx = View.normalize_x(x)
-		local handy = View.normalize_y(y)
+		local handx = UI.realize_x(x)
+		local handy = UI.realize_y(y)
 
-		local w = View.normalize_x(Card.width())
-		local h = View.normalize_y(Card.height())
+		local w, h = UI.card.getRealizedDim()
 
 		local cards = f()
 
@@ -148,10 +132,10 @@ function M.hand(x, y, f, card_ueh)
 
 				local pos = View:post(v)
 				if pos and pos.y == thisy and not View:is_dragging(v) then
-					local details_x = thisx + w + View.normalize_x(0.02)
+					local details_x = thisx + w + UI.realize_x(0.02)
 
-					if thisx > View.normalize_x(0.5) then
-						details_x = thisx - View.normalize_x(0.22)
+					if thisx > UI.realize_x(0.5) then
+						details_x = thisx - UI.realize_x(0.22)
 					end
 
 					detail = function()
@@ -196,64 +180,129 @@ function M.move_selector(x, y)
 	---@type Move[]?
 	local movelist = nil
 
-	local btndata = { 0.1, 0.1, text = "confirm" }
+	---@type table<Effect, boolean>?
+	local effects = nil
+
+	---@type Move[]?
+	local effectlist = nil
 
 	---@type Component
 	return function()
+		local detail = nil
+
 		if moves and movelist then
-			local movew = View.normalize_x(Move.width())
+			local thisx, thisy = UI.realize_xy(x, y)
 
-			local thisx = View.normalize_x(x)
-			local thisy = View.normalize_y(y)
-			local n = #movelist
+			local movew = UI.skill.getRealizedDim()
 
-			thisx = thisx - (n * movew * 2) - ((n - 1) * 5)
+			local pad = UI.realize_x(UI.width(2))
 
-			local detail = nil
+			View:movelist("shop", "shop", x, y)
+
+			thisx = thisx + UI.realize_x(UI.width(4.2))
+			thisy = thisy + UI.realize_y(UI.height(11))
 
 			for v, is_chosen in pairs(moves) do
-				if is_chosen then
-					View:move(v, thisx, thisy - Move.width(), v)
-				else
+				if not is_chosen then
 					View:move(v, thisx, thisy, v)
-				end
 
-				if View:is_hovering(v) then
-					local details_x = thisx + movew * 4 + View.normalize_x(0.02)
+					if View:is_hovering(v) then
+						local details_x = thisx + movew + 0.02
 
-					if thisx > View.normalize_x(0.5) then
-						details_x = thisx - View.normalize_x(0.22)
+						if thisx > 0.5 then
+							details_x = thisx - 0.22
+						end
+
+						detail = function()
+							View:details(v.desc, tostring(v) .. "hand", details_x, y)
+						end
 					end
 
-					detail = function()
-						View:details(v.desc, tostring(v) .. "hand", details_x, thisy)
-					end
+					View:register(v, {
+						click = function()
+							moves[v] = not moves[v]
+
+							for _, tok in ipairs(Engine.player:bag()) do
+								if Token.isCoin(tok) then
+									Engine.player:discard({ tok })
+									Engine.player:draft({ Token.create("lint") })
+									Engine.player:learn(v)
+                  return
+								end
+							end
+						end,
+					})
 				end
 
-				View:register(v, {
-					click = function()
-						View:cancel_tween(v)
-						moves[v] = not moves[v]
-					end,
-				})
-
-				thisx = thisx + movew * 4 + 10
+				thisx = thisx + movew + pad
 			end
+		end
 
-			if detail then
-				detail()
-			end
-		else
+		-- if effects and effectlist then
+		-- 	local movew = View.normalize_x(Move.width())
+		--
+		-- 	local thisx = x
+		-- 	local thisy = y + Move.height()
+		--
+		-- 	for v, is_chosen in pairs(effects) do
+		-- 		if not is_chosen then
+		-- 			View:move(v, thisx, thisy, v)
+		--
+		-- 			if View:is_hovering(v) then
+		-- 				local details_x = thisx + Move.width() + 0.02
+		--
+		-- 				if thisx > 0.5 then
+		-- 					details_x = thisx - 0.22
+		-- 				end
+		--
+		-- 				detail = function()
+		-- 					View:details("Cost: 1 coin\n" .. v.desc, tostring(v) .. "shop", details_x, thisy)
+		-- 				end
+		-- 			end
+		--
+		-- 			View:register(v, {
+		-- 				click = function()
+		-- 					local bag = Engine.player:bag()
+		--
+		-- 					for _, coin in ipairs(bag) do
+		-- 						if coin.type == "coin" then
+		-- 							Engine.player:learn(v)
+		-- 							Engine.player:discard({ coin })
+		-- 							Engine.player:draft({ Token.create("lint") })
+		--
+		-- 							effects[v] = not effects[v]
+		-- 							return
+		-- 						end
+		-- 					end
+		-- 				end,
+		-- 			})
+		-- 		end
+		--
+		-- 		thisx = thisx + Move.width()
+		-- 	end
+		-- end
+
+		if detail then
+			detail()
+		end
+
+		if not moves and not effects then
 			-- Will get drawn on the next frame
 			moves = {}
-			movelist = Engine.player:levelup(2)
+			effects = {}
+
+			movelist, effectlist = Engine.player:levelup(5)
+
 			for _, v in ipairs(movelist) do
 				moves[v] = false
+			end
+
+			for _, v in ipairs(effectlist) do
+				effects[v] = false
 			end
 		end
 	end
 end
-
 
 ---@param x number
 ---@param y number
@@ -269,9 +318,9 @@ function M.token_selector(x, y)
 	---@type Component
 	return function()
 		if tokens and tokenlist then
-			local tokenr = View.normalize_x(Token.radius())
+			local tokenr = UI.token.getRealizedDim() / 2
 
-			View:button(x - 0.05, y + Token.radius() * 2 * 4 - 0.05, btndata, function()
+			View:button(x - 0.05, y + UI.token.getRealizedDim() * 4 - 0.05, btndata, function()
 				---@type Token[]
 				local chosen = {}
 
@@ -279,7 +328,8 @@ function M.token_selector(x, y)
 				local not_chosen = {}
 
 				for k, v in pairs(tokens) do
-					View:register(v)
+					View:register(k)
+
 					if v then
 						table.insert(chosen, k)
 					else
@@ -296,8 +346,8 @@ function M.token_selector(x, y)
 				Engine:transition("upgrading")
 			end)
 
-			local thisx = View.normalize_x(x)
-			local thisy = View.normalize_y(y) - tokenr
+			local thisx = UI.realize_x(x)
+			local thisy = UI.realize_y(y) - tokenr
 			local n = #tokenlist
 
 			thisx = thisx - (n * tokenr * 2) - ((n - 1) * 5)
@@ -312,10 +362,10 @@ function M.token_selector(x, y)
 				end
 
 				if View:is_hovering(v) then
-					local details_x = thisx + tokenr * 4 + View.normalize_x(0.02)
+					local details_x = thisx + tokenr * 4 + UI.realize_x(0.02)
 
-					if thisx > View.normalize_x(0.5) then
-						details_x = thisx - View.normalize_x(0.22)
+					if thisx > UI.realize_x(0.5) then
+						details_x = thisx - UI.realize_x(0.22)
 					end
 
 					detail = function()
@@ -493,8 +543,8 @@ function M.board(x, y, active_f, exhausted_f, token_ueh)
 			end
 		end
 
-		local tokenr = View.normalize_x(Token.radius())
-		local pd = View.normalize_x(4)
+		local tokenr = UI.token.getRealizedDim() / 2
+		local pd = UI.width(4)
 
 		local tokx = thisx
 		local toky = thisy + h * #token_types

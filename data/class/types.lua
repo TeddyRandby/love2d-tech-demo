@@ -6,6 +6,7 @@
 ---@field token_table TokenDropTable
 ---@field card_table CardDropTable
 ---@field move_table MoveDropTable
+---@field effect_table EffectDropTable
 ---@field signature TokenType
 ---@field moves MoveType[]
 ---@field effects EffectType[]
@@ -37,9 +38,11 @@ local M = {
 		move_table = {
 			ooze_shop_draft_ooze = 1,
 			ooze_exhaust_donate = 1,
+		},
+    effect_table = {
 			ooze_draft_opponent_does_too = 1,
 			ooze_opponent_draw_donate = 1,
-		},
+    },
 		moves = {
 			"minion_attack",
 		},

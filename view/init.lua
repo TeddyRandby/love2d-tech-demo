@@ -102,11 +102,8 @@ function M:is_hovering(o)
 	return hovered_on_top, hovered_at_all
 end
 
-local Card = require("data.card")
-local Token = require("data.token")
-local Move = require("data.move")
+local UI = require("ui")
 local Bag = require("data.bag")
-local Icon = require("data.icon")
 
 ---@alias RenderCommandTarget IconType[] | Move | Card | Token | Token[] | string | RenderCommandButtonTarget
 
@@ -135,7 +132,7 @@ end
 
 ---@alias RenderCommandButtonTarget { [1]: number, [2]: number, text: string }
 ---@alias RenderCommandBoardSlotTarget { type: TokenType, amt: integer }
----@alias RenderCommandType "button" | "bag" | "card" | "token" | "text" | "move" | "board" | "details" | "icon"
+---@alias RenderCommandType "button" | "bag" | "card" | "token" | "text" | "move" | "board" | "details" | "icon" | "movelist"
 
 ---@class RenderCommandText
 ---@field type "text"
@@ -161,6 +158,10 @@ end
 ---@field type "move"
 ---@field target Move
 ---
+---@class RenderCommandMoveList
+---@field type "movelist"
+---@field target "shop" | "moves"
+
 ---@class RenderCommandBoardSlot
 ---@field type "board"
 ---@field target RenderCommandBoardSlotTarget
@@ -229,10 +230,8 @@ end
 
 ---@param x number
 ---@param y number
----@param w? number
----@param h? number
 ---@return integer, integer
-function M.normalize_xy(x, y, w, h)
+function M.normalize_xy(x, y)
 	return M.normalize_x(x), M.normalize_y(y)
 end
 
@@ -265,7 +264,7 @@ end
 local function card_contains(self, x, y)
 	local ops = M.command_target_positions[self.id]
 	assert(ops ~= nil)
-	local cardw, cardh = M.normalize_xy(Card.width(), Card.height(), Card.width(), Card.height())
+	local cardw, cardh = UI.card.getRealizedDim()
 
 	local cx = ops.x + cardw / 2
 	local cy = ops.y + cardh / 2
@@ -286,7 +285,7 @@ end
 ---@param y integer
 local function bag_contains(self, x, y)
 	local pos = M.command_target_positions[self.id]
-	local w, h = M.normalize_xy(Move.width(), Move.height())
+	local w, h = UI.skill.getRealizedDim()
 	assert(pos ~= nil)
 	return rect_collision(x, y, pos.x, pos.y, w, h)
 end
@@ -295,7 +294,7 @@ end
 ---@param x integer
 ---@param y integer
 local function move_contains(self, x, y)
-	local w, h = M.normalize_xy(Move.width(), Move.height(), Move.width(), Move.height())
+	local w, h = UI.skill.getRealizedDim()
 	local pos = M.command_target_positions[self.id]
 	assert(pos ~= nil)
 	return rect_collision(x, y, pos.x, pos.y, w, h)
@@ -308,7 +307,7 @@ local function button_contains(self, x, y)
 	local w, h = table.unpack(self.target)
 	local ops = M.command_target_positions[self.id]
 	assert(ops ~= nil)
-	w, h = M.normalize_xy(w, h, w, h)
+	w, h = M.normalize_xy(w, h)
 	return rect_collision(x, y, ops.x, ops.y, w, h)
 end
 
@@ -316,7 +315,8 @@ end
 ---@param x integer
 ---@param y integer
 local function token_contains(self, x, y)
-	local tokenr = M.normalize_x(Token.radius())
+	local tokenr = UI.token.getRealizedDim() / 2
+
 	local pos = M.command_target_positions[self.id]
 	assert(pos ~= nil)
 	tokenr = tokenr * pos.scale
@@ -434,7 +434,7 @@ end
 ---@param id? unknown
 function M:move(move, x, y, id)
 	self:push_renderable("move", move, id or {}, move_contains, x, y)
-	self:icon(move.icon, x, y)
+	self:icon(move.icon, x, y, move)
 end
 
 ---@param id unknown
@@ -458,7 +458,7 @@ function M:token(token, x, y, ox, oy, time, scale)
 	self:push_renderable("token", token, token, token_contains, x, y, nil, ox, oy, time, nil, scale)
 end
 
----@param bag Token[]
+---@param bag "active" | "exhausted" | "bag"
 ---@param id string
 ---@param x integer
 ---@param y integer
@@ -467,6 +467,17 @@ end
 function M:bag(bag, id, x, y, ox, oy)
 	-- Is there a better way to do this, with meta tables?
 	self:push_renderable("bag", bag, id, bag_contains, x, y, nil, ox, oy)
+end
+
+---@param label "moves" | "shop"
+---@param id string
+---@param x integer
+---@param y integer
+---@param ox? integer
+---@param oy? integer
+function M:movelist(label, id, x, y, ox, oy)
+	-- Is there a better way to do this, with meta tables?
+	self:push_renderable("movelist", label, id, nil, x, y, nil, ox, oy)
 end
 
 ---@param f function
@@ -547,12 +558,12 @@ local BGImageWidth = BGImage:getWidth()
 local BGImageHeight = BGImage:getHeight()
 
 function M:fill_background()
-	local w, h = self.normalize_xy(1, 1, 1, 1)
+	local w, h = self.normalize_xy(1, 1)
 
 	local sy = h / BGImageHeight
-  local sx = w / BGImageWidth
+	local sx = w / BGImageWidth
 
-  local realw = BGImageWidth * sy
+	local realw = BGImageWidth * sy
 
 	love.graphics.draw(BGImage, (w - realw) / 2, 0, 0, sy, sy)
 end
@@ -566,7 +577,7 @@ local ButtonImageHeight = ButtonImage:getHeight()
 local FontHeight = love.graphics.getFont():getHeight()
 
 function M:__drawbutton(target, x, y, w, h, text)
-	x, y = self.normalize_xy(x, y, w, h)
+	x, y = self.normalize_xy(x, y)
 	w, h = self.normalize_xy(w, h)
 	local sx = w / ButtonImageWidth
 	local sy = h / ButtonImageHeight
@@ -666,26 +677,26 @@ function M:draw()
 			local card = v.target
 			local pos = self.command_target_positions[v.id]
 
-			Card.draw(card, pos.x, pos.y, pos.r)
+			UI.card.draw(card, pos.x, pos.y, pos.r)
 		elseif t == "token" then
 			---@type Token
 			local token = v.target
 			local pos = self.command_target_positions[v.id]
 
-			Token.draw(token, pos.x, pos.y, pos.scale)
+			UI.token.draw(token, pos.x, pos.y, pos.scale)
 		elseif t == "move" then
 			---@type Move
 			local move = v.target
 			local pos = self.command_target_positions[v.id]
 
-			Move.draw(move, pos.x, pos.y)
+      UI.skill.draw(move, pos.x, pos.y)
 		elseif t == "icon" then
 			---@type IconType[]
 			local icon = v.target
 			local pos = self.command_target_positions[v.id]
 
 			for _, i in ipairs(icon) do
-				Icon.draw(i, pos.x, pos.y)
+        UI.icon.draw(i, pos.x, pos.y)
 			end
 		elseif t == "text" then
 			---@type string
@@ -726,13 +737,20 @@ function M:draw()
 			local pos = self.command_target_positions[v.id]
 			local w, h = target[1], target[2]
 			self:__drawbutton(target, pos.x, pos.y, w, h, target.text)
-		elseif t == "bag" then
-			---@type Token[]
+		elseif t == "movelist" then
+			---@type "moves" | "shop"
 			local target = v.target
 
 			local pos = self.command_target_positions[v.id]
 
-			Bag.draw(pos.x, pos.y, target[1])
+			UI.skillbox.draw(pos.x, pos.y, target)
+		elseif t == "bag" then
+			---@type "active" | "bag" | "exhausted"
+			local target = v.target
+
+			local pos = self.command_target_positions[v.id]
+
+			Bag.draw(pos.x, pos.y, target)
 		else
 			assert(false, "Unhandled case")
 		end
