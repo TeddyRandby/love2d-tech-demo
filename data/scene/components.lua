@@ -352,7 +352,7 @@ function M.token_selector(x, y)
 				Engine.player:push(chosen)
 				Engine.player:push(not_chosen)
 
-				Engine:transition("upgrading")
+				Engine:rewind()
 			end)
 
 			local thisx = UI.realize_x(x)
@@ -485,11 +485,11 @@ function M.enemy(x, y)
 		local enemy = Engine.enemy
 		if enemy then
 			View:text(
-				enemy.enemy.type
+				enemy.class.type
 					.. "("
 					.. Engine.enemy.lives
 					.. "/"
-					.. Engine.enemy.enemy.battle_stats.lives
+					.. Engine.enemy.class.lives
 					.. ")"
 					.. ". Power: "
 					.. Engine.enemy.power,

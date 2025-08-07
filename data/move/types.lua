@@ -1,4 +1,4 @@
----@alias MoveType "minion_attack" | "ooze_shop_draft_ooze"
+---@alias MoveType "minion_attack" | "ooze_shop_draft_ooze" | "ooze_exhaust_draw_tokens"
 
 ---@class MoveCost
 ---@field type TokenType | fun(t: Token): boolean
@@ -47,4 +47,60 @@ return {
 			g:draft({ Token.create("ooze") })
 		end,
 	},
+  {
+    type = "ooze_exhaust_draw_tokens",
+    desc = "Exhaust an ooze to draw two tokens.",
+    icon = { "ooze", "exhaust" },
+    cost = {
+      amount = 1,
+      type = "ooze",
+      state = "active",
+      pay_by = "exhaust",
+    },
+    effect = function(g)
+      g:draw(2)
+    end,
+  },
+  {
+    type = "refine_twice",
+    desc = "",
+    icon = { "coin" },
+    cost = {
+      amount = 1,
+      type = "coin",
+      state = "bag",
+      pay_by = "transmute",
+    },
+    effect = function(g)
+      --g:refine(3)
+    end
+  },
+  {
+    type = "opponents_draft_bomb",
+    desc = "",
+    icon = {},
+    cost = {
+      amount = 1,
+      type = "coin",
+      state = "bag",
+      pay_by = "transmute",
+    },
+    effect = function(g)
+      g:opponent():draft({ Token.create "bomb" })
+    end
+  },
+  {
+    type = "draft_two_mana",
+    desc = "",
+    icon = {},
+    cost = {
+      amount = 1,
+      type = "coin",
+      state = "bag",
+      pay_by = "transmute",
+    },
+    effect = function(g)
+      g:draft({ Token.create("mana"), Token.create("mana") })
+    end
+  },
 }

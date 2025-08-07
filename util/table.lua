@@ -1,9 +1,8 @@
 if not table.unpack then
-  -- Workaround for lua versions/deprecations
-  assert(unpack, "Expected global unpack when table.unpack is unavailable")
-  table.unpack = unpack
+	-- Workaround for lua versions/deprecations
+	assert(unpack, "Expected global unpack when table.unpack is unavailable")
+	table.unpack = unpack
 end
-
 
 ---@generic T
 ---@generic X
@@ -155,15 +154,15 @@ end
 ---@param f? fun(list: T[]): T
 ---@return T[]
 function table.take(t, n, f)
-  f = f or table.pop
+	f = f or table.pop
 
-  local tmp = {}
+	local tmp = {}
 
-  for _ = 1, n do
-    table.insert(tmp, f(t))
-  end
+	for _ = 1, n do
+		table.insert(tmp, f(t))
+	end
 
-  return tmp
+	return tmp
 end
 
 ---@generic T
@@ -235,21 +234,21 @@ end
 ---@param len? integer
 ---@return T[]
 function table.slice(t, start, len)
-  start = start or 1
+	start = start or 1
 
-  if start < 0 then
-    start = math.max(#t + start, 0)
-  end
-
-  len = len or #t - start
-
-  local tmp = {}
-
-	for i = start, start + len do
-    table.insert(tmp, t[i])
+	if start < 0 then
+		start = math.max(#t + start, 0)
 	end
 
-  return tmp
+	len = len or #t - start
+
+	local tmp = {}
+
+	for i = start, start + len do
+		table.insert(tmp, t[i])
+	end
+
+	return tmp
 end
 
 ---@generic T
@@ -257,13 +256,13 @@ end
 ---@param f? fun(): T
 ---@return T[]
 function table.of(n, f)
-  local tmp = {}
+	local tmp = {}
 
-  for _ = 1, n do
-    table.insert(tmp, f and f() or nil)
-  end
+	for _ = 1, n do
+		table.insert(tmp, f and f() or nil)
+	end
 
-  return tmp
+	return tmp
 end
 
 ---@generic T
@@ -272,17 +271,27 @@ end
 ---@param f fun(v): K
 ---@return table<K, T[]>
 function table.group(t, f)
-  local tmp = {}
+	local tmp = {}
 
-  for _, v in ipairs(t) do
-    local k = f(v)
+	for _, v in ipairs(t) do
+		local k = f(v)
 
-    if tmp[k] then
-      table.insert(tmp[k], v)
-    else
-      tmp[k] = {v}
-    end
-  end
+		if tmp[k] then
+			table.insert(tmp[k], v)
+		else
+			tmp[k] = { v }
+		end
+	end
 
-  return tmp
+	return tmp
+end
+
+---@param below table
+---@param above table
+function table.merge_over(below, above)
+	for k, v in pairs(above) do
+		below[k] = v
+	end
+
+  return below
 end

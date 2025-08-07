@@ -73,11 +73,11 @@ local EnemyExhausted = Components.bag(-0.41, 0.4, "Enemy", "exhausted", Inputs.E
 local TokenSelector = Components.token_selector(0.5, 0.5)
 
 local PlayerProfile = function()
-	local str = Engine.player.player.type
+	local str = Engine.player.class.type
 		.. " -- Lives: "
 		.. Engine.player.lives
 		.. "/"
-		.. Engine.player.player.battle_stats.lives
+		.. Engine.player.class.lives
 		.. ". Power: "
 		.. Engine.player.power
 
@@ -187,9 +187,9 @@ end)
 
 local History = Components.history(0.01, 0.1)
 
----@type table<SceneType, Scene>
+---@type Scene[]
 return {
-	main = {
+	{
 		name = "main",
 		layout = {
 			Components.button(0.4, 0.4, 0.1, 0.1, "Play", function()
@@ -197,7 +197,7 @@ return {
 			end),
 		},
 	},
-	gameover = {
+	{
 		name = "gameover",
 		layout = {
 			Components.button(0.4, 0.4, 0.1, 0.1, "Play", function()
@@ -205,7 +205,7 @@ return {
 			end),
 		},
 	},
-	drafting = {
+	{
 		name = "drafting",
 		layout = {
 			EnemyProfile,
@@ -218,7 +218,7 @@ return {
 			PlayerHandUp(),
 		},
 	},
-	upgrading = {
+	{
 		name = "upgrading",
 		layout = {
 			EnemyProfile,
@@ -246,7 +246,8 @@ return {
 					dragend = function(x, y)
 						-- If we're above the hand play the card
 						local _, cardheight = UI.card.getNormalizedDim()
-						if y > View.normalize_y(-cardheight) then
+            print("CARDHEIGHT", cardheight, UI.realize_y(-cardheight), y)
+						if y > UI.realize_y(-cardheight) then
 							return
 						end
 
@@ -267,7 +268,7 @@ return {
 			end,
 		},
 	},
-	choosing = {
+	{
 		name = "choosing",
 		layout = {
 			EnemyProfile,
@@ -279,7 +280,7 @@ return {
 			PlayerHandDown,
 		},
 	},
-	battling = {
+	{
 		name = "battling",
 		layout = {
 			EnemyProfile,
@@ -304,14 +305,14 @@ return {
 				"Draw",
 				function()
 					Engine:begin_round()
-					if Engine.scene == "battling" then
+					if Engine:current_scene() == "battling" then
 						Engine:transition("round")
 					end
 				end
 			),
 		},
 	},
-	round = {
+	{
 		name = "round",
 		layout = {
 			EnemyProfile,
@@ -343,7 +344,8 @@ return {
 				"Done",
 				function()
 					Engine:end_round()
-					if Engine.scene == "round" then
+
+					if Engine:current_scene()== "round" then
 						Engine:transition("battling")
 					end
 				end

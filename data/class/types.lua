@@ -2,7 +2,8 @@
 
 ---@class Class
 ---@field type ClassType
----@field battle_stats BattleStats
+---@field draw integer
+---@field lives integer
 ---@field token_table TokenDropTable
 ---@field card_table CardDropTable
 ---@field move_table MoveDropTable
@@ -17,6 +18,8 @@ local M = {
 	{
 		type = "ooze",
 		signature = "ooze",
+    draw = 3,
+    lives = 3,
 		battle_stats = { draw = 3, lives = 3 },
 		token_table = {
 			ooze = 3,
