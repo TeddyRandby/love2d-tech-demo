@@ -34,6 +34,7 @@ end
 function M.draw(icon, x, y, r)
 	local sx, sy = UI.scale_xy()
 	love.graphics.setColor(1, 1, 1)
+  assert(M.types[icon], "Invalid icon: " .. icon)
 	love.graphics.draw(IconSpritesheet, M.types[icon].quad, x, y, r, sx, sy)
 end
 

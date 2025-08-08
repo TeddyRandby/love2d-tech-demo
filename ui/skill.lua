@@ -11,7 +11,7 @@ function M.getRealizedDim()
 end
 
 function M.getNormalizedDim()
-  return UI.normalize_xy(M.getPixelDim())
+	return UI.normalize_xy(M.getPixelDim())
 end
 
 function M.getPixelDim()
@@ -27,7 +27,7 @@ local SkillBGHL = love.graphics.newQuad(M.pixelw * 4, 0, M.pixelw, M.pixelh, Ski
 ---@param x integer
 ---@param y integer
 function M.empty(x, y)
-  local sx, sy = UI.scale_xy()
+	local sx, sy = UI.scale_xy()
 
 	love.graphics.translate(x, y)
 
@@ -35,17 +35,23 @@ function M.empty(x, y)
 	love.graphics.draw(SkillSpritesheet, SkillEMPTY, 0, 0, 0, sx, sy)
 end
 
----@param skill Move | Effect
+---@param skill Move | Effect | nil
 ---@param x integer
 ---@param y integer
 function M.draw(skill, x, y)
 	local sx, sy = UI.scale_xy()
 
 	love.graphics.translate(x, y)
+	love.graphics.setColor(1, 1, 1, 1)
+
+	if not skill then
+		love.graphics.draw(SkillSpritesheet, SkillEMPTY, 0, 0, 0, sx, sy)
+		return
+	end
 
 	if skill.cost then
-    ---@type Move
-    local move = skill
+		---@type Move
+		local move = skill
 
 		if Engine.player:doable(move) then
 			-- Shaders.glow(Engine.time)
@@ -53,8 +59,6 @@ function M.draw(skill, x, y)
 			-- Shaders.reset()
 		end
 	end
-
-	love.graphics.setColor(1, 1, 1, 1)
 
 	-- Shaders.pixel_scanline(x, y, w, h, sx, sy, 0)
 	love.graphics.draw(SkillSpritesheet, SkillBG, 0, 0, 0, sx, sy)

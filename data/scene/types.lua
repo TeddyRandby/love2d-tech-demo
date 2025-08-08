@@ -6,6 +6,7 @@
 
 local Components = require("data.scene.components")
 local Card = require("data.card")
+local Move = require("data.move")
 
 local Inputs = {}
 
@@ -78,6 +79,10 @@ local PlayerProfile = function()
 		.. Engine.player.class.lives
 		.. ". Power: "
 		.. Engine.player.power
+    .. ". Manapool: "
+    .. Engine.player.mana
+    .. ". Gold: "
+    .. Engine.player.gold
 
 	View:text(str, 0.1, 0.01)
 end
@@ -90,10 +95,12 @@ local function EffectsComponent(x, y, cb)
 	return function()
 		local detail = nil
 
-		View:movelist("moves", "Playereffects", x, y, x, 1)
+		View:movelist("effects", "Playereffects", x, y, x, 1)
 
 		local thisx = x + UI.width(5)
 		local thisy = y + UI.height(11)
+
+		local total = 0
 
 		for _, effects in pairs(Engine.player.event_handlers) do
 			for _, effect in ipairs(effects) do
@@ -111,27 +118,16 @@ local function EffectsComponent(x, y, cb)
 				-- end
 
 				thisx = thisx + NormalMoveWidth + UI.width(2)
+				total = total + 1
 			end
 		end
 
-		-- thisx = x
-		-- thisy = y + Move.height() + 0.01
+		while total < 5 do
+			View:move(nil, thisx, thisy, "emptyeffect" .. total)
 
-		-- for _, effects in pairs(Engine.player.event_handlers) do
-		-- 	for _, effect in ipairs(effects) do
-		-- 		---@diagnostic disable-next-line: param-type-mismatch
-		-- 		View:move(effect, thisx, thisy, effect)
-		--
-		-- 		if View:is_hovering(effect) then
-		-- 			local x = thisx
-		-- 			detail = function()
-		-- 				View:details(effect.desc, effect.desc, x + Move.width() + 0.01, thisy)
-		-- 			end
-		-- 		end
-		--
-		-- 		thisx = thisx + Move.width()
-		-- 	end
-		-- end
+			thisx = thisx + NormalMoveWidth + UI.width(2)
+			total = total + 1
+		end
 
 		if detail then
 			detail()
@@ -150,6 +146,7 @@ local function MovesComponent(x, y, cb)
 
 		local thisx = x + UI.width(5)
 		local thisy = y + UI.height(11)
+		local total = 0
 
 		for i, move in ipairs(Engine.player.moves) do
 			View:move(move, thisx, thisy, move)
@@ -157,7 +154,7 @@ local function MovesComponent(x, y, cb)
 			if View:is_hovering(move) then
 				local detailx = thisx + NormalMoveWidth + UI.width(4)
 				detail = function()
-					View:details(move.desc, tostring(move), detailx, thisy)
+					View:details(Move.describe(move), tostring(move), detailx, thisy)
 				end
 			end
 
@@ -166,6 +163,14 @@ local function MovesComponent(x, y, cb)
 			end
 
 			thisx = thisx + NormalMoveWidth + UI.width(2)
+			total = total + 1
+		end
+
+		while total < 5 do
+			View:move(nil, thisx, thisy, "emptymove" .. total)
+
+			thisx = thisx + NormalMoveWidth + UI.width(2)
+			total = total + 1
 		end
 
 		if detail then
@@ -224,8 +229,8 @@ return {
 
 			History,
 
-			EffectsComponent(0.01, 0.4),
-			MovesComponent(0.01, 0.6, function(i, move)
+			EffectsComponent(0.01, 0.6),
+			MovesComponent(0.01, 0.4, function(i, move)
 				return {
 					click = function()
 						if Engine.player:doable(move) then
@@ -235,7 +240,7 @@ return {
 				}
 			end),
 
-			Components.move_selector(-0.01 - UI.skillbox.getNormalizedDim(), 0.38),
+			Components.move_selector(-0.01 - UI.skillbox.getNormalizedDim(), 0.4),
 
 			PlayerProfile,
 			PlayerBag,
@@ -244,7 +249,7 @@ return {
 					dragend = function(x, y)
 						-- If we're above the hand play the card
 						local _, cardheight = UI.card.getNormalizedDim()
-            print("CARDHEIGHT", cardheight, UI.realize_y(-cardheight), y)
+						print("CARDHEIGHT", cardheight, UI.realize_y(-cardheight), y)
 						if y > UI.realize_y(-cardheight) then
 							return
 						end
@@ -288,7 +293,7 @@ return {
 
 			History,
 
-			MovesComponent(0.1, 0.6),
+			MovesComponent(0.01, 0.6),
 
 			PlayerProfile,
 			PlayerBag,
@@ -324,7 +329,7 @@ return {
 			PlayerBag,
 			PlayerActive,
 			PlayerExhausted,
-			MovesComponent(0.1, 0.6, function(_, move)
+			MovesComponent(0.01, 0.6, function(_, move)
 				return {
 					click = function(x, y)
 						if Engine.player:doable(move) then
@@ -343,7 +348,7 @@ return {
 				function()
 					Engine:end_round()
 
-					if Engine:current_scene()== "round" then
+					if Engine:current_scene() == "round" then
 						Engine:transition("battling")
 					end
 				end

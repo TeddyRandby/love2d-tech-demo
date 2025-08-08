@@ -6,6 +6,11 @@ for _, v in ipairs(MoveTypes) do
 	M[v.type] = v
 end
 
+---@param move Move
+function M.describe(move)
+	return move.type .. "\n\n" .. move.cost.amount .. " " .. tostring(move.cost.type) .. ":\n\n" .. move.desc
+end
+
 ---@param types MoveType[]
 function M.array_of(types)
 	return table.map(types, function(t)
@@ -52,10 +57,15 @@ function M.matches_cost(m, tokens, token_states)
 end
 
 ---@param m Move
----@param tokens Token[]
----@param token_states table<Token, TokenState>
-function M.cost_is_met(m, tokens, token_states)
-	return #M.matches_cost(m, tokens, token_states) >= m.cost.amount
+---@param g GameplayData
+function M.cost_is_met(m, g)
+	if m.cost.type == "gold" then
+		return g.gold >= m.cost.amount
+	elseif m.cost.type == "manapool" then
+		return g.mana >= m.cost.amount
+	else
+		return #M.matches_cost(m, g.token_list, g.token_states) >= m.cost.amount
+	end
 end
 
 return M

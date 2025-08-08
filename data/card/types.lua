@@ -1,4 +1,4 @@
----@alias CardType "discover" | "refine" | "pillage" | "bargain" | "meditate" | "recruit" | "sacrifice" | "refine_two"
+---@alias CardType "discover" | "refine" | "pillage" | "bargain" | "meditate" | "recruit" | "sacrifice" | "refine_two" | "steal" | "opponent_refine"
 ---@alias CardDropTable table<CardType, integer>
 ---
 ---@class Card
@@ -15,6 +15,12 @@ return {
 			Actions.discover(3),
 		},
 	},
+	{
+		type = "steal",
+		ops = {
+			Actions.steal(2),
+		},
+	},
   {
     type = "sacrifice",
     ops = {
@@ -26,6 +32,12 @@ return {
 		type = "refine",
 		ops = {
 			Actions.refine(3),
+		},
+	},
+	{
+		type = "opponent_refine",
+		ops = {
+			Actions.opponent_refine(3),
 		},
 	},
 	{

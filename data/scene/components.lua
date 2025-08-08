@@ -3,6 +3,7 @@
 local M = {}
 
 local Card = require("data.card")
+local Move = require("data.move")
 local Token = require("data.token")
 
 ---@param x number
@@ -71,17 +72,38 @@ function M.bag(x, y, prefix, t, f)
 
 		View:bag(t, id, thisx, thisy, 0, thisy)
 
-    thisx = thisx + UI.realize_x(UI.width(2))
-    thisy = thisy + UI.realize_y(UI.height(2))
+		thisx = thisx + UI.realize_x(UI.width(2))
+		thisy = thisy + UI.realize_y(UI.height(2))
 
 		for _, ttype in ipairs(Engine.TokenTypes) do
 			local v = grouped[ttype.type] or {}
 
 			if #v > 0 then
+				local useful = false
+
+				for _, move in ipairs(Engine.player.moves) do
+					if View:is_hovering(move) then
+						if Move.needs(move, v[1]) then
+							useful = true
+							break
+						end
+					end
+				end
+
 				for _, token in ipairs(v) do
-					View:token(token, thisx, thisy, 0.5, 0, 0.5)
+					local y = thisy
+
+					if useful then
+						y = y - UI.realize_y(UI.height(2))
+					end
+
+					View:token(token, thisx, y, 0.5, 0, 0.5)
 
 					thisx = thisx + pixelsz
+				end
+
+				if useful then
+					thisx = thisx + UI.token.getRealizedDim()
 				end
 			end
 		end
@@ -197,13 +219,15 @@ function M.move_selector(x, y)
 
 			local pad = UI.realize_x(UI.width(2))
 
-			View:movelist("shop", "shop", x, y)
+			View:movelist("shopmoves", "shopmoves", x, y)
 
 			thisx = thisx + UI.realize_x(UI.width(4.2))
 			thisy = thisy + UI.realize_y(UI.height(11))
+			local total = 0
 
 			for v, is_chosen in pairs(moves) do
 				if not is_chosen then
+					total = total + 1
 					View:move(v, thisx, thisy, v)
 
 					if View:is_hovering(v) then
@@ -214,21 +238,18 @@ function M.move_selector(x, y)
 						-- end
 
 						detail = function()
-							View:details(v.desc, tostring(v) .. "hand", details_x, thisy)
+							View:details(Move.describe(v), tostring(v) .. "hand", details_x, thisy)
 						end
 					end
 
 					View:register(v, {
 						click = function()
-							moves[v] = not moves[v]
-
-							for _, tok in ipairs(Engine.player:bag()) do
-								if Token.isCoin(tok) then
-									Engine.player:discard({ tok })
-									Engine.player:draft({ Token.create("lint") })
-									Engine.player:learn(v)
-                  return
-								end
+							if Engine.player.gold > 0 then
+								moves[v] = not moves[v]
+								--TODO: Is this how I want gold and stuff to work?
+								--Shop-abilities are weird then
+								Engine.player.gold = Engine.player.gold - 1
+								Engine.player:learn(v)
 							end
 						end,
 					})
@@ -236,27 +257,34 @@ function M.move_selector(x, y)
 
 				thisx = thisx + movew + pad
 			end
-		end
 
+			while total < 5 do
+				View:move(nil, thisx, thisy, "emptyshopmove" .. total)
+
+				thisx = thisx + movew + pad
+				total = total + 1
+			end
+		end
 
 		if effects and effectlist then
 			local thisx, thisy = UI.realize_xy(x, y)
 
-      thisy = thisy + UI.realize_y(UI.height(2) + UI.height(UI.skillbox.pixelh))
+			thisy = thisy + UI.realize_y(0.2)
 
 			local movew = UI.skill.getRealizedDim()
 
 			local pad = UI.realize_x(UI.width(2))
 
-			View:movelist("shop", "effectshop", thisx, thisy)
+			View:movelist("shopeffects", "shopeffects", thisx, thisy)
 
 			thisx = thisx + UI.realize_x(UI.width(4.2))
 			thisy = thisy + UI.realize_y(UI.height(11))
+			local total = 0
 
 			for v, is_chosen in pairs(effects) do
 				if not is_chosen then
-
----@diagnostic disable-next-line: param-type-mismatch
+					total = total + 1
+					---@diagnostic disable-next-line: param-type-mismatch
 					View:move(v, thisx, thisy, v)
 
 					if View:is_hovering(v) then
@@ -273,21 +301,24 @@ function M.move_selector(x, y)
 
 					View:register(v, {
 						click = function()
-							effects[v] = not effects[v]
-
-							for _, tok in ipairs(Engine.player:bag()) do
-								if Token.isCoin(tok) then
-									Engine.player:discard({ tok })
-									Engine.player:draft({ Token.create("lint") })
-									Engine.player:learn(v)
-                  return
-								end
+							if Engine.player.gold > 0 then
+								effects[v] = not effects[v]
+								Engine.player.gold = Engine.player.gold - 1
+								Engine.player:learn(v)
 							end
 						end,
 					})
 				end
 
 				thisx = thisx + movew + pad
+			end
+
+			local total = #effectlist
+			while total < 5 do
+				View:move(nil, thisx, thisy, "emptyshopeffect" .. total)
+
+				thisx = thisx + movew + pad
+				total = total + 1
 			end
 		end
 

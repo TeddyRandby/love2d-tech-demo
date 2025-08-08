@@ -427,13 +427,16 @@ function M:icon(icons, x, y, id, r, ox, oy, time)
 	self:push_renderable("icon", icons, id or {}, nil, x, y, r, ox, oy, time)
 end
 
----@param move Move
+---@param move Move | Effect | nil
 ---@param x integer
 ---@param y integer
 ---@param id? unknown
 function M:move(move, x, y, id)
 	self:push_renderable("move", move, id or {}, move_contains, x, y)
-	self:icon(move.icon, x, y, move)
+
+	if move then
+		self:icon(move.icon, x, y, move)
+	end
 end
 
 ---@param id unknown
@@ -468,7 +471,7 @@ function M:bag(bag, id, x, y, ox, oy)
 	self:push_renderable("bag", bag, id, bag_contains, x, y, nil, ox, oy)
 end
 
----@param label "moves" | "shop"
+---@param label "moves" | "effects" | "shopeffects" | "shopmoves"
 ---@param id string
 ---@param x integer
 ---@param y integer
@@ -684,18 +687,18 @@ function M:draw()
 
 			UI.token.draw(token, pos.x, pos.y, pos.scale)
 		elseif t == "move" then
-			---@type Move
+			---@type Move | nil
 			local move = v.target
 			local pos = self.command_target_positions[v.id]
 
-      UI.skill.draw(move, pos.x, pos.y)
+			UI.skill.draw(move, pos.x, pos.y)
 		elseif t == "icon" then
 			---@type IconType[]
 			local icon = v.target
 			local pos = self.command_target_positions[v.id]
 
 			for _, i in ipairs(icon) do
-        UI.icon.draw(i, pos.x, pos.y)
+				UI.icon.draw(i, pos.x, pos.y)
 			end
 		elseif t == "text" then
 			---@type string
@@ -737,7 +740,7 @@ function M:draw()
 			local w, h = target[1], target[2]
 			self:__drawbutton(target, pos.x, pos.y, w, h, target.text)
 		elseif t == "movelist" then
-			---@type "moves" | "shop"
+			---@type "moves" | "shopmoves" | "effects" | "shopeffects"
 			local target = v.target
 
 			local pos = self.command_target_positions[v.id]
@@ -749,7 +752,7 @@ function M:draw()
 
 			local pos = self.command_target_positions[v.id]
 
-      UI.bag.draw(pos.x, pos.y, target)
+			UI.bag.draw(pos.x, pos.y, target)
 		else
 			assert(false, "Unhandled case")
 		end

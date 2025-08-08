@@ -1,4 +1,4 @@
----@alias IconType "coin" | "sword" | "ooze" | "card" | "token" | "draft" | "donate" | "exhaust" | "draw" | "discard" | "enemy_draft" | "enemy_donate" | "enemy_exhaust" | "enemy_draw" | "enemy_discard"
+---@alias IconType "coin" | "sword" | "ooze" | "card" | "token" | "draft" | "donate" | "exhaust" | "draw" | "discard" | "opponent_draft" | "opponent_donate" | "opponent_exhaust" | "opponent_draw" | "opponent_discard"
 
 ---@class Icon
 ---@field type IconType
@@ -48,23 +48,23 @@ return {
 		offset = 9,
 	},
 	{
-		type = "enemy_draft",
+		type = "opponent_draft",
 		offset = 10,
 	},
 	{
-		type = "enemy_donate",
+		type = "opponent_donate",
 		offset = 11,
 	},
 	{
-		type = "enemy_discard",
+		type = "opponent_discard",
 		offset = 12,
 	},
 	{
-		type = "enemy_draw",
+		type = "opponent_draw",
 		offset = 13,
 	},
 	{
-		type = "enemy_exhaust",
+		type = "opponent_exhaust",
 		offset = 14,
 	},
 }

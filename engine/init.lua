@@ -124,6 +124,8 @@ function M:encounter()
 	local enemy = table.unpack(table.replacement_sample(self.ClassTypes, 1))
 	local behavior = table.unpack(table.replacement_sample(self.BehaviorTypes, 1))
 	self.enemy = Gameplay.enemy(enemy, behavior)
+  self.player.lives = self.player.maxlives
+  self.enemy.lives = self.enemy.maxlives
 end
 
 --- Push events into the engine's event history.

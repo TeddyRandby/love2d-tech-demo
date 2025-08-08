@@ -9,10 +9,13 @@ local Token = require("data.token")
 ---@field drawn integer
 ---@field power integer
 ---@field lives integer
+---@field maxlives integer
+---@field mana integer
+---@field gold integer
 ---@field TokenTable Token[]
 ---@field CardTable Card[]
 ---@field MoveTable Move[]
----@field EffectTable Move[]
+---@field EffectTable Effect[]
 ---@field event_handlers table<EffectCause, Effect[]>
 ---@field token_list Token[]
 ---@field token_states table<Token, TokenState>
@@ -84,6 +87,10 @@ function M:levelup(n)
 		return t
 	end)
 
+  for _, v in ipairs(self.EffectTable) do
+    print(v.type)
+  end
+
 	return table.unique_replacement_sample(self.MoveTable, n, {}, self.moves, table.copy),
 		table.unique_replacement_sample(self.EffectTable, n, {}, effects, table.copy)
 end
@@ -136,14 +143,8 @@ end
 function M:__fire(e, t)
 	local handlers = self.event_handlers[e]
 
-  for k, v in pairs(self.event_handlers) do
-    print(k, "=>", #v)
-  end
-
-  print("[FIRE] ", e, t.type, handlers and #handlers)
 	if handlers then
 		for _, h in ipairs(handlers) do
-      print("[CHECK] ", e, t.type, h.type, h.active, h.should)
 			if h.active then
 				if h.should then
 					if type(h.should) ~= "function" or h.should(self, t) then
@@ -157,7 +158,6 @@ function M:__fire(e, t)
 
 	-- If the cause doesn't begin with opponent,
 	-- Then we fire an opponent event.
-  print("[CHECKFIRE] ", e, not e:match("^opponent"))
 	if not e:match("^opponent") then
 		self:opponent():__fire("opponent_" .. e, t)
 	end
@@ -272,32 +272,38 @@ end
 
 ---@param move Move
 function M:doable(move)
-	return Move.cost_is_met(move, self.token_list, self.token_states)
+	if type(move.should) ~= "function" and move.should then
+		return Move.cost_is_met(move, self)
+	else
+		return Move.cost_is_met(move, self) and move.should(self)
+	end
 end
 
 ---@param move Move
 function M:domove(move)
-	assert(self:doable(move))
+	assert(self:doable(move), "Move wasn't doable! " .. move.type)
 
-	local could_pay_with = Move.matches_cost(move, self.token_list, self.token_states)
-	assert(#could_pay_with >= move.cost.amount)
-
-	if move.cost.pay_by == "exhaust" then
-		self:exhaust(table.take(could_pay_with, move.cost.amount))
-	elseif move.cost.pay_by == "draft" then
-		self:draft(table.take(could_pay_with, move.cost.amount))
-	elseif move.cost.pay_by == "discard" then
-		self:discard(table.take(could_pay_with, move.cost.amount))
-	elseif move.cost.pay_by == "donate" then
-		self:donate(table.take(could_pay_with, move.cost.amount), self:opponent())
-	elseif move.cost.pay_by == "transmute" then
-		self:discard(table.take(could_pay_with, move.cost.amount))
-
-		self:draft(table.of(move.cost.amount, function()
-			return Token.create("lint")
-		end))
+	if move.cost.type == "gold" then
+    assert(self.gold >= move.cost.amount)
+    self.gold = self.gold - move.cost.amount
+	elseif move.cost.type == "manapool" then
+    assert(self.mana >= move.cost.amount)
+    self.mana = self.mana - move.cost.amount
 	else
-		assert(false, "Unhandled move cost pay type: " .. move.cost.pay_by)
+		local could_pay_with = Move.matches_cost(move, self.token_list, self.token_states)
+		assert(#could_pay_with >= move.cost.amount)
+
+		if move.cost.method == "exhaust" then
+			self:exhaust(table.take(could_pay_with, move.cost.amount))
+		elseif move.cost.method == "draft" then
+			self:draft(table.take(could_pay_with, move.cost.amount))
+		elseif move.cost.method == "discard" then
+			self:discard(table.take(could_pay_with, move.cost.amount))
+		elseif move.cost.method == "donate" then
+			self:donate(table.take(could_pay_with, move.cost.amount), self:opponent())
+		else
+			assert(false, "Unhandled move cost pay type: " .. move.cost.method)
+		end
 	end
 
 	move.effect(self)
@@ -410,6 +416,8 @@ function M:__play()
 			self:pull_into(microop.amount, self:top())
 		elseif t == "peek" then
 			self:peek_into(microop.amount, self:top())
+		elseif t == "opponent_peek" then
+			self:opponent():peek_into(microop.amount, self:top())
 		elseif t == "signature" then
 			for _ = 1, microop.amount do
 				table.insert(self:top(), Token.create(self:signature()))
@@ -474,9 +482,12 @@ function M.create(class, choose)
 		TokenTable = construct_droptable(Engine.TokenTypes, class.token_table),
 		MoveTable = construct_droptable(Engine.MoveTypes, class.move_table),
 		EffectTable = construct_droptable(Engine.EffectTypes, class.effect_table),
+		mana = 0,
+		gold = 0,
 		power = 0,
+		lives = 0,
 		drawn = class.draw,
-		lives = class.lives,
+		maxlives = class.lives,
 		hand = {},
 		token_list = {},
 		token_states = {},

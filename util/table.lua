@@ -132,13 +132,10 @@ function table.filter(t, f)
 
 	for _, v in ipairs(t) do
 		if type(f) == "function" then
-
 			if f(v) then
 				table.insert(tmp, v)
 			end
-
 		elseif type(f) == "table" then
-
 			local exclude = table.find(f, function(x)
 				return x == v
 			end)
@@ -327,9 +324,14 @@ end
 ---@param below table
 ---@param above table
 function table.merge_over(below, above)
-	for k, v in pairs(above) do
-		below[k] = v
+	local tmp = {}
+	for k, v in pairs(below) do
+		tmp[k] = v
 	end
 
-	return below
+	for k, v in pairs(above) do
+		tmp[k] = v
+	end
+
+	return tmp
 end

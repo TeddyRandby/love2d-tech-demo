@@ -1,4 +1,4 @@
----@alias TokenType "coin" | "mana" | "corruption" | "lint" | "bomb" | "ooze" | "elemental" | "imp" | "customer" | "parrot" | "skeleton"
+---@alias TokenType "coin" | "mana" | "corruption" | "bomb" | "ooze" | "elemental" | "imp" | "customer" | "parrot" | "skeleton"
 ---@alias TokenDropTable table<TokenType, integer>
 ---
 ---@class Token
@@ -36,12 +36,6 @@ local M = {
 		desc = "Uh oh! Draw too many of these, and you'll take damage!",
 		primary_color = { color(0x8f, 0x64, 0xcc) },
 		secondary_color = { color(0x51, 0x18, 0xa1) },
-	},
-	{
-		type = "lint",
-		desc = "Just a piece of lint.",
-		primary_color = { 1, 1, 1 },
-		secondary_color = { 1, 1, 1 },
 	},
 	{
 		type = "ooze",
