@@ -2,8 +2,6 @@ local M = {}
 
 local MoveTypes = require("data.move.types")
 
----@alias MoveEventType MoveType
-
 for _, v in ipairs(MoveTypes) do
 	M[v.type] = v
 end

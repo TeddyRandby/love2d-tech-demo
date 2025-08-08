@@ -6,8 +6,6 @@
 
 local Components = require("data.scene.components")
 local Card = require("data.card")
-local Move = require("data.move")
-local Bag = require("data.bag")
 
 local Inputs = {}
 

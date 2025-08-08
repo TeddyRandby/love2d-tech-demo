@@ -103,5 +103,6 @@ M.token = require("ui.token")
 M.skill = require("ui.skill")
 M.icon = require("ui.icon")
 M.skillbox = require("ui.skillbox")
+M.bag = require("ui.bag")
 
 return M

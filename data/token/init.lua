@@ -13,18 +13,22 @@ for _, v in ipairs(TokenTypes) do
 	M[v.type] = v
 end
 
+---@param t Token
 function M.isMana(t)
 	return t.type == "mana"
 end
 
+---@param t Token
 function M.isCorruption(t)
 	return t.type == "corruption"
 end
 
+---@param t Token
 function M.isCoin(t)
 	return t.type == "coin"
 end
 
+---@param token Token
 function M.isMinion(token)
 	local t = token.type
 	return not (t == "coin" or t == "corruption" or t == "mana" or t == "lint")

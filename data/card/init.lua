@@ -1,5 +1,4 @@
 local M = {}
-local Shaders = require("util.shaders")
 local CardTypes = require("data.card.types")
 
 for _, v in ipairs(CardTypes) do

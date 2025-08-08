@@ -2,8 +2,7 @@
 
 ---@alias TokenEventType "draft" | "discard" | "donate" | "draw" | "exhaust" | "activate" | "opponent_draft" | "opponent_discard" | "opponent_donate" | "opponent_draw" | "opponent_exhaust" | "opponent_activate"
 
----@alias CardEventType CardType
----@alias EffectCause TokenEventType | CardEventType
+---@alias EffectCause EventType
 
 ---@class Effect
 ---@field type EffectType
@@ -11,20 +10,12 @@
 ---@field desc string
 ---@field icon IconType[]
 ---@field active boolean
----@field effect fun(g: GameplayData, t: Token | Card)
+---@field effect fun(g: GameplayData, t: EventTarget)
 ---@field should? boolean | fun(g: GameplayData, t: Token | Card): boolean
 
 ---@alias EffectDropTable table<EffectType, integer>
 
 local Token = require("data.token")
-
----@param t TokenType
-local function donate(t)
-	---@type fun(self: GameplayData, token: Token)
-	return function(self, token)
-		self:donate({ t }, self:opponent())
-	end
-end
 
 ---@param t TokenType
 local function token_is(t)

@@ -7,6 +7,7 @@
 ---@field token_table TokenDropTable
 ---@field card_table CardDropTable
 ---@field move_table MoveDropTable
+---@field token_weights table<TokenType, integer>
 ---@field effect_table EffectDropTable
 ---@field signature TokenType
 ---@field moves MoveType[]
@@ -18,9 +19,13 @@ local M = {
 	{
 		type = "ooze",
 		signature = "ooze",
-    draw = 3,
-    lives = 3,
-		battle_stats = { draw = 3, lives = 3 },
+		draw = 3,
+		lives = 3,
+		token_weights = {
+			ooze = 3,
+			bomb = 0,
+			corruption = 0,
+		},
 		token_table = {
 			ooze = 3,
 			coin = 1,
@@ -42,12 +47,13 @@ local M = {
 			ooze_shop_draft_ooze = 1,
 			ooze_exhaust_donate = 1,
 		},
-    effect_table = {
+		effect_table = {
 			ooze_draft_opponent_does_too = 1,
 			ooze_opponent_draw_donate = 1,
-    },
+		},
 		moves = {
 			"minion_attack",
+			"refine_twice",
 		},
 		effects = {
 			"bomb_explode",

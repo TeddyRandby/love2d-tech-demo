@@ -1,11 +1,16 @@
 local Class = require("data.class")
 local Scene = require("data.scene")
 
+---@alias CardEventType CardType | "play"
+---@alias MoveEventType MoveType | "do"
+---@alias EventType TokenEventType | CardEventType | MoveEventType
+---@alias EventTarget Token | Card | Move
+
 ---@class Event
 ---@field truetype "token" | "card" | "move"
----@field type TokenEventType | CardEventType | MoveEventType
+---@field type EventType
 ---@field owner GameplayData
----@field target Token | Card | Move
+---@field target EventTarget
 
 ---@class Engine
 ---@field scene SceneType[]
@@ -16,6 +21,7 @@ local Scene = require("data.scene")
 ---@field MoveTypes Move[]
 ---@field ClassTypes Class[]
 ---@field EffectTypes Effect[]
+---@field BehaviorTypes Behavior[]
 ---@field player GameplayData?
 ---@field enemy GameplayData?
 ---@field time number
@@ -30,6 +36,7 @@ local M = {
 	CardTypes = require("data.card.types"),
 	ClassTypes = require("data.class.types"),
 	EffectTypes = require("data.effect.types"),
+	BehaviorTypes = require("data.behavior.types"),
 
 	player = nil,
 	enemy = nil,
@@ -115,7 +122,8 @@ end
 --- Sample a random enemy
 function M:encounter()
 	local enemy = table.unpack(table.replacement_sample(self.ClassTypes, 1))
-	self.enemy = Gameplay.enemy(enemy)
+	local behavior = table.unpack(table.replacement_sample(self.BehaviorTypes, 1))
+	self.enemy = Gameplay.enemy(enemy, behavior)
 end
 
 --- Push events into the engine's event history.

@@ -40,6 +40,31 @@ end
 ---@param src T[]
 ---@param n integer
 ---@param dst? T[]
+---@param exclude? T[]
+---@param f? fun(in: T): X
+---@return T[]
+function table.unique_replacement_sample(src, n, dst, exclude, f)
+	exclude = exclude or {}
+	dst = dst or {}
+
+	src = table.filter(table.copy(src), function(t)
+		return not table.find(exclude, function(v)
+			return t == v
+		end)
+	end)
+
+	if #src == 0 then
+		return dst
+	end
+
+	return table.sample(src, n, dst, f)
+end
+
+---@generic T
+---@generic X
+---@param src T[]
+---@param n integer
+---@param dst? T[]
 ---@param f? fun(in: T): X
 ---@return T[]
 function table.sample(src, n, dst, f)
@@ -99,15 +124,28 @@ function table.flatmap(t, f)
 end
 
 ---@generic T
----@param f fun(in: T): boolean
+---@param f T[] | fun(in: T): boolean
 ---@param t T[]
 ---@return T[]
 function table.filter(t, f)
 	local tmp = {}
 
 	for _, v in ipairs(t) do
-		if f(v) then
-			table.insert(tmp, v)
+		if type(f) == "function" then
+
+			if f(v) then
+				table.insert(tmp, v)
+			end
+
+		elseif type(f) == "table" then
+
+			local exclude = table.find(f, function(x)
+				return x == v
+			end)
+
+			if not exclude then
+				table.insert(tmp, v)
+			end
 		end
 	end
 
@@ -180,7 +218,7 @@ function table.keys(t)
 	local tmp = {}
 
 	for k in pairs(t) do
-		table.insert(k)
+		table.insert(tmp, k)
 	end
 
 	return tmp
@@ -194,7 +232,7 @@ function table.vals(t)
 	local tmp = {}
 
 	for _, v in pairs(t) do
-		table.insert(v)
+		table.insert(tmp, v)
 	end
 
 	return tmp
@@ -293,5 +331,5 @@ function table.merge_over(below, above)
 		below[k] = v
 	end
 
-  return below
+	return below
 end

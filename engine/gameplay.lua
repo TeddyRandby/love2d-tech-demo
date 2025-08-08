@@ -1,4 +1,5 @@
 local Move = require("data.move")
+local Card = require("data.card")
 local Effect = require("data.effect")
 local Token = require("data.token")
 
@@ -23,10 +24,12 @@ local Token = require("data.token")
 ---@field class Class
 local M = {}
 
+---@return Token[]
 function M:top()
 	return self.token_stack[#self.token_stack]
 end
 
+---@return Token[]
 function M:pop()
 	return table.remove(self.token_stack, #self.token_stack)
 end
@@ -35,25 +38,29 @@ function M:push(e)
 	table.insert(self.token_stack, e)
 end
 
+---@return Token[]
 function M:peek_into(n, tab)
 	return table.sample(self.token_list, n, tab)
 end
 
+---@return Token[]
 function M:peek(n)
 	return self:peek_into(n)
 end
 
+---@return Token[]
 function M:pull(n)
 	return self:pull_into(n)
 end
 
+---@return Token[]
 function M:pull_into(n, tab)
 	-- Copy each sampled token so that they are unique game objects.
 	return table.replacement_sample(self.TokenTable, n, tab, table.copy)
 end
 
 function M:opponent()
-	if self.player then
+	if self == Engine.player then
 		return Engine.enemy
 	else
 		return Engine.player
@@ -73,8 +80,12 @@ function M:fish(n, tab)
 end
 
 function M:levelup(n)
-	return table.replacement_sample(self.MoveTable, n, {}, table.copy),
-		table.replacement_sample(self.EffectTable, n, {}, table.copy)
+	local effects = table.flatmap(table.vals(self.event_handlers), function(t)
+		return t
+	end)
+
+	return table.unique_replacement_sample(self.MoveTable, n, {}, self.moves, table.copy),
+		table.unique_replacement_sample(self.EffectTable, n, {}, effects, table.copy)
 end
 
 function M:hit()
@@ -120,11 +131,19 @@ function M:isempty()
 	return table.isempty(self:bag())
 end
 
+---@param e EventType
+---@param t EventTarget
 function M:__fire(e, t)
 	local handlers = self.event_handlers[e]
 
+  for k, v in pairs(self.event_handlers) do
+    print(k, "=>", #v)
+  end
+
+  print("[FIRE] ", e, t.type, handlers and #handlers)
 	if handlers then
 		for _, h in ipairs(handlers) do
+      print("[CHECK] ", e, t.type, h.type, h.active, h.should)
 			if h.active then
 				if h.should then
 					if type(h.should) ~= "function" or h.should(self, t) then
@@ -138,6 +157,7 @@ function M:__fire(e, t)
 
 	-- If the cause doesn't begin with opponent,
 	-- Then we fire an opponent event.
+  print("[CHECKFIRE] ", e, not e:match("^opponent"))
 	if not e:match("^opponent") then
 		self:opponent():__fire("opponent_" .. e, t)
 	end
@@ -224,7 +244,11 @@ function M:discard(ts)
 	end
 end
 
+---@param ts Token[]
+---@param to? GameplayData
 function M:donate(ts, to)
+	to = to or self:opponent()
+
 	for _, donated in ipairs(ts) do
 		for i, v in ipairs(self.token_list) do
 			if donated == v then
@@ -246,17 +270,17 @@ function M:donate(ts, to)
 	to:draft(ts)
 end
 
+---@param move Move
 function M:doable(move)
 	return Move.cost_is_met(move, self.token_list, self.token_states)
 end
 
+---@param move Move
 function M:domove(move)
 	assert(self:doable(move))
 
 	local could_pay_with = Move.matches_cost(move, self.token_list, self.token_states)
 	assert(#could_pay_with >= move.cost.amount)
-
-	Engine:log_moveevent(move, self)
 
 	if move.cost.pay_by == "exhaust" then
 		self:exhaust(table.take(could_pay_with, move.cost.amount))
@@ -277,8 +301,15 @@ function M:domove(move)
 	end
 
 	move.effect(self)
+
+	-- Log the move event and fire off the handlers.
+	Engine:log_moveevent(move, self)
+
+	self:__fire("do", move)
+	self:__fire(move.type, move)
 end
 
+---@param skill Move | Effect
 function M:learn(skill)
 	if Move[skill.type] then
 		table.insert(self.moves, skill)
@@ -292,6 +323,7 @@ function M:learn(skill)
 	end
 end
 
+---@param moves? Move[]
 function M:domoves(moves)
 	moves = moves or self.moves
 	for _, move in ipairs(moves) do
@@ -301,11 +333,13 @@ function M:domoves(moves)
 	end
 end
 
+---@param t Token
+---@param s? TokenState
 function M:useful(t, s)
 	local state = self.token_states[t]
 	s = s or state
 
-	-- A token we don't have or in the bag isn't useful
+	-- A token we don't have isn't useful
 	if not state then
 		return false
 	end
@@ -317,13 +351,16 @@ function M:useful(t, s)
 	end)
 end
 
-function M:play(n)
-	n = n or Engine.rng:random(#self.hand)
+---@param card_type CardType
+function M:playcardtype(card_type)
+	local card = Card[card_type]
+	assert(card ~= nil, "Unexpected card type: " .. card_type)
+	self:playcard(card)
+end
 
-	---@type Card
-	local card = table.remove(self.hand, n)
-
-	assert(#self.token_stack == 0)
+---@param card Card
+function M:playcard(card)
+	assert(#self.token_stack == 0, "Tokenstack was not empty when " .. card.type .. " was played.")
 	-- Push an empty table onto the play stack for each card operation we intend to do.
 	for _ = 1, #card.ops do
 		self:push({})
@@ -336,8 +373,24 @@ function M:play(n)
 	-- Log this card as played in the event log.
 	Engine:log_cardevent(card, self)
 
+	-- TODO: Think through is this a safe way of doing it?
+	-- Its not consistent - for tokens, the effects happen *after*
+	-- the business of cause takes place.
+	self:__fire("play", card)
+	self:__fire(card.type, card)
+
 	-- Now we can play
 	self:__play()
+end
+
+---@param n? integer
+function M:play(n)
+	n = n or Engine.rng:random(#self.hand)
+
+	---@type Card
+	local card = table.remove(self.hand, n)
+
+	self:playcard(card)
 end
 
 function M:__play()
@@ -444,13 +497,24 @@ function M.player(class)
 end
 
 ---@param class Class
-function M.enemy(class)
+---@param behavior Behavior
+function M.enemy(class, behavior)
 	return M.create(class, function(self)
 		local not_chosen, chosen = self:pop(), {}
 
-		table.sample(not_chosen, 1, chosen)
+		local pool = table.flatmap(not_chosen, function(o)
+			local bhv_weight = behavior.token_weights[o.type] or 1
+			local class_weight = self.class.token_weights[o.type] or 0
+			local weight = bhv_weight + class_weight
 
-		self:push(chosen)
+			return table.of(weight, function()
+				return o
+			end)
+		end)
+
+		table.sample(pool, 1, chosen)
+
+		self:push(table.filter(chosen, not_chosen))
 		self:push(not_chosen)
 	end)
 end

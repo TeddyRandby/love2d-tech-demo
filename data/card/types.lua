@@ -1,11 +1,11 @@
----@alias CardType "discover" | "refine" | "pillage" | "bargain" | "meditate" | "recruit" | "sacrifice"
+---@alias CardType "discover" | "refine" | "pillage" | "bargain" | "meditate" | "recruit" | "sacrifice" | "refine_two"
 ---@alias CardDropTable table<CardType, integer>
 ---
 ---@class Card
 ---@field type CardType
 ---@field ops ActionOp[]
 
-Actions = require("data.card.actions")
+local Actions = require("data.card.actions")
 
 ---@type Card[]
 return {
@@ -25,6 +25,13 @@ return {
 	{
 		type = "refine",
 		ops = {
+			Actions.refine(3),
+		},
+	},
+	{
+		type = "refine_two",
+		ops = {
+			Actions.refine(3),
 			Actions.refine(3),
 		},
 	},

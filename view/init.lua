@@ -103,7 +103,6 @@ function M:is_hovering(o)
 end
 
 local UI = require("ui")
-local Bag = require("data.bag")
 
 ---@alias RenderCommandTarget IconType[] | Move | Card | Token | Token[] | string | RenderCommandButtonTarget
 
@@ -750,7 +749,7 @@ function M:draw()
 
 			local pos = self.command_target_positions[v.id]
 
-			Bag.draw(pos.x, pos.y, target)
+      UI.bag.draw(pos.x, pos.y, target)
 		else
 			assert(false, "Unhandled case")
 		end
