@@ -244,13 +244,15 @@ function M:log_cardevent(target, owner)
 	table.insert(self.event_history, e)
 end
 
+---@param player_class Class
+function M:game(player_class)
+	self:begin_game(player_class, 11)
+	self:transition("drafting")
+end
+
 function M:load()
 	self.rng = love.math.newRandomGenerator(os.clock())
-
-	self:begin_game(Class.ooze, 11)
-
 	self:transition("main")
-
 	return self
 end
 

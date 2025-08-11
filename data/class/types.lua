@@ -114,6 +114,7 @@ local M = {
 		move_table = table.merge_over(neutral_moves, {
 			exhaust_coin_draw_two = 1,
 			discard_coin_draft_opponent_token = 1,
+      coin_attack = 1,
 		}),
 		effect_table = table.merge_over(neutral_effects, {
 			draw_customer_activate_coin = 1,

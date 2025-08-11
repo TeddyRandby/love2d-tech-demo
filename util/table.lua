@@ -19,7 +19,7 @@ function table.replacement_sample(src, n, dst, f)
 			if #src == 0 then
 				return dst
 			end
-			local idx = math.random(1, #src)
+			local idx = Engine.rng:random(1, #src)
 			table.insert(dst, f(src[idx]))
 		end
 	else
@@ -27,7 +27,7 @@ function table.replacement_sample(src, n, dst, f)
 			if #src == 0 then
 				return dst
 			end
-			local idx = math.random(1, #src)
+			local idx = Engine.rng:random(1, #src)
 			table.insert(dst, src[idx])
 		end
 	end
@@ -75,7 +75,7 @@ function table.sample(src, n, dst, f)
 			if #src == 0 then
 				return dst
 			end
-			local idx = math.random(1, #src)
+			local idx = Engine.rng:random(1, #src)
 			table.insert(dst, f(table.remove(src, idx)))
 		end
 	else
@@ -83,7 +83,7 @@ function table.sample(src, n, dst, f)
 			if #src == 0 then
 				return dst
 			end
-			local idx = math.random(1, #src)
+			local idx = Engine.rng:random(1, #src)
 			table.insert(dst, table.remove(src, idx))
 		end
 	end

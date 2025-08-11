@@ -72,7 +72,7 @@ local EnemyExhausted = Components.bag(-0.41, 0.4, "Enemy", "exhausted", Inputs.E
 local TokenSelector = Components.token_selector(0.5, 0.5)
 
 local PlayerProfile = function()
-  local player = Engine:player()
+	local player = Engine:player()
 	local str = player.class.type
 		.. " -- Lives: "
 		.. player.lives
@@ -80,10 +80,10 @@ local PlayerProfile = function()
 		.. player.class.lives
 		.. ". Power: "
 		.. player.power
-    .. ". Manapool: "
-    .. player.mana
-    .. ". Gold: "
-    .. player.gold
+		.. ". Manapool: "
+		.. player.mana
+		.. ". Gold: "
+		.. player.gold
 
 	View:text(str, 0.1, 0.01)
 end
@@ -196,9 +196,15 @@ return {
 	{
 		name = "main",
 		layout = {
-			Components.button(0.4, 0.4, 0.1, 0.1, "Play", function()
-				Engine:transition("drafting")
-			end),
+			function()
+				local thisx, thisy = 0.01, 0.4
+				for _, v in ipairs(Engine.ClassTypes) do
+					Components.button(thisx, thisy, 0.1, 0.1, "Play " .. v.type, function()
+						Engine:game(v)
+					end)()
+					thisx = thisx + 0.1 + 0.01
+				end
+			end,
 		},
 	},
 	{
@@ -255,7 +261,7 @@ return {
 							return
 						end
 
-            Engine:bots_playcard()
+						Engine:bots_playcard()
 
 						Engine:player():play(i)
 					end,

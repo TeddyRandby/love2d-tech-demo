@@ -1,4 +1,4 @@
----@alias MoveType "minion_attack" | "mana_makemana" | "ooze_shop_draft_ooze" | "ooze_exhaust_draw_tokens" | "refine_twice" | "elemental_makemana" | "corruption_makemana" | "draft_imp_and_corruption" | "exhaust_elemental_mana" | "exhaust_token_refine_opponent" | "discard_coin_draft_opponent_token" | "exhaust_coin_draw_two" | "gold_recruit" | "opponents_draft_bomb" | "activate_one_units" | "activate_all_units" | "exhaust_ten_from_bag"  | "draft_opponents_token" | "discard_opponents_token" | "shop_refine_opponent" | "corruption_attack"
+---@alias MoveType "minion_attack" | "mana_makemana" | "ooze_shop_draft_ooze" | "ooze_exhaust_draw_tokens" | "refine_twice" | "elemental_makemana" | "corruption_makemana" | "draft_imp_and_corruption" | "exhaust_elemental_mana" | "exhaust_token_refine_opponent" | "discard_coin_draft_opponent_token" | "exhaust_coin_draw_two" | "gold_recruit" | "opponents_draft_bomb" | "activate_one_units" | "activate_all_units" | "exhaust_ten_from_bag"  | "draft_opponents_token" | "discard_opponents_token" | "shop_refine_opponent" | "corruption_attack" | "coin_attack"
 
 ---@class MoveCost
 ---@field type "manapool" | "gold" | TokenType | fun(t: Token): boolean
@@ -26,6 +26,21 @@ return {
     icon = { "sword" },
     cost = {
       type = Token.isMinion,
+      amount = 1,
+      state = "active",
+      method = "exhaust",
+    },
+    should = true,
+    effect = function(g)
+      g.power = g.power + 1
+    end,
+  },
+  {
+    type = "coin_attack",
+    desc = "Exhaust a coin token to attack your opponent!",
+    icon = { "sword" },
+    cost = {
+      type = Token.isCoin,
       amount = 1,
       state = "active",
       method = "exhaust",
