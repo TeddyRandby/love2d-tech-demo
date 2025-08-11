@@ -22,13 +22,11 @@ local Scene = require("data.scene")
 ---@field ClassTypes Class[]
 ---@field EffectTypes Effect[]
 ---@field BehaviorTypes Behavior[]
----@field player GameplayData?
----@field enemy GameplayData?
+---@field players GameplayData[]
+---@field matchups table<GameplayData, GameplayData>
 ---@field time number
 ---@field event_history Event[]
 local M = {
-	scene = {},
-	time = 0,
 
 	MoveTypes = require("data.move.types"),
 	SceneTypes = require("data.scene.types"),
@@ -38,12 +36,56 @@ local M = {
 	EffectTypes = require("data.effect.types"),
 	BehaviorTypes = require("data.behavior.types"),
 
-	player = nil,
-	enemy = nil,
+	players = {},
+	matchups = {},
+
 	event_history = {},
+	scene = {},
+	time = 0,
 }
 
 local Gameplay = require("engine.gameplay")
+
+---@return GameplayData
+function M:player()
+	return self.players[1]
+end
+
+---@return GameplayData
+function M:enemy()
+	return self.matchups[self:player()]
+end
+
+---@param player_class Class
+---@param opps integer
+function M:begin_game(player_class, opps)
+	local tmp = {}
+	table.insert(tmp, Gameplay.player(player_class))
+
+	for _ = 1, opps do
+		table.insert(tmp, self:encounter())
+	end
+
+	self.players = tmp
+end
+
+---Create random matchups for each player
+function M:matchup()
+	local players = table.copy(self.players)
+	assert(#players % 2 == 0)
+
+	repeat
+		local l, r = table.unpack(table.sample(players, 2))
+		assert(l ~= nil)
+		assert(r ~= nil)
+		self.matchups[l] = r
+		self.matchups[r] = l
+	until table.isempty(players)
+
+	for i, v in ipairs(self.players) do
+		assert(v:opponent() ~= nil, "No opponent made for " .. i .. " : " .. v.class.type)
+	end
+end
 
 function M:current_scene()
 	return table.peek(self.scene)
@@ -53,17 +95,40 @@ function M:__enterscene()
 	local scene = self:current_scene()
 
 	if scene == "drafting" then
-		self:encounter()
+		self:matchup()
+
+		for _, v in ipairs(self.players) do
+			v:reset_bag()
+			v.lives = v.class.lives
+			v.power = 0
+			v.mana = 0
+		end
 	elseif scene == "upgrading" then
 		-- This will complete any pending micro-ops.
 		-- As we may have yielded in the middle of playing a card
 		-- (For example, to choose a token as an effect of playing a card)
-		self.player:__play()
-		self.enemy:__play()
+		for _, v in ipairs(self.players) do
+			v:__play()
+		end
 	elseif scene == "gameover" then
-		self.player.token_list = {}
-		self.player.token_states = {}
+		self.players = {}
+		self.matchups = {}
 	elseif scene == "battling" then
+	end
+end
+
+function M:bots_pickcard()
+	for i = 2, #self.players do
+		local bot = self.players[i]
+		--- TODO: Do I need to pass table.copy here?
+		table.replacement_sample(bot.CardTable, 1, bot.hand)
+	end
+end
+
+function M:bots_playcard()
+	for i = 2, #self.players do
+		local bot = self.players[i]
+		bot:play()
 	end
 end
 
@@ -80,52 +145,58 @@ function M:transition(scene)
 end
 
 function M:begin_round()
-	if self.player:isempty() then
-		self.player:hit()
-	end
+	for _, v in ipairs(self.players) do
+		if v:isempty() then
+			v:hit()
+		end
 
-	if self.enemy:isempty() then
-		self.enemy:hit()
+		v:draw()
 	end
+end
 
-	self.player:draw()
-	self.enemy:draw()
+function M:battling()
+	-- We are still battling if some player *and* their opponent
+	-- still have lives left. This is redundant bc it checks every matchup twice,
+	-- but thats okay.
+	return not not table.find(self.players, function(p)
+		return p.lives > 0 and p:opponent().lives > 0
+	end)
 end
 
 function M:end_round()
-	self.enemy:domoves() -- Enemy exhaustively plays its moves, in order.
+	for i, v in ipairs(self.players) do
+		v:domoves()
 
-	if self.player.power > self.enemy.power then
-		self.enemy:hit()
-	elseif self.player.power < self.enemy.power then
-		self.player:hit()
+		if v.power < v:opponent().power then
+			v:hit()
+		end
+
+		v.power = 0
+
+		if v.lives <= 0 then
+			-- A little scuffed
+			if v == self:player() then
+				return Engine:transition("gameover")
+			elseif v == self:enemy() then
+				-- Complete all the other battles
+				-- repeat
+				-- 	self:begin_round()
+				-- 	self:end_round()
+				-- until not self:battling()
+
+				-- Complete the round without player input
+				Engine:transition("drafting")
+			end
+		end
 	end
-
-	self.enemy.power = 0
-	self.player.power = 0
-
-	if self.player.lives <= 0 then
-		self.player.lives = self.player.lives
-		return Engine:transition("gameover")
-	end
-
-	if self.enemy.lives <= 0 then
-		self.player.lives = self.player.lives
-		self.player:reset_bag()
-
-		return Engine:transition("drafting")
-	end
-
-	self.player.lives = self.player.lives
 end
 
 --- Sample a random enemy
+---@return GameplayData
 function M:encounter()
 	local enemy = table.unpack(table.replacement_sample(self.ClassTypes, 1))
 	local behavior = table.unpack(table.replacement_sample(self.BehaviorTypes, 1))
-	self.enemy = Gameplay.enemy(enemy, behavior)
-  self.player.lives = self.player.maxlives
-  self.enemy.lives = self.enemy.maxlives
+	return Gameplay.enemy(enemy, behavior)
 end
 
 --- Push events into the engine's event history.
@@ -176,7 +247,7 @@ end
 function M:load()
 	self.rng = love.math.newRandomGenerator(os.clock())
 
-	self.player = Gameplay.player(Class.ooze)
+	self:begin_game(Class.ooze, 11)
 
 	self:transition("main")
 

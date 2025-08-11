@@ -63,11 +63,7 @@ function M:pull_into(n, tab)
 end
 
 function M:opponent()
-	if self == Engine.player then
-		return Engine.enemy
-	else
-		return Engine.player
-	end
+  return Engine.matchups[self]
 end
 
 function M:signature()
@@ -443,8 +439,7 @@ function M:__play()
 		elseif t == "discard" then
 			self:discard(self:pop())
 		elseif t == "donate" then
-			-- If we are the player (self.player != nil) then donate to the enemy, and vice-versa.
-			self:donate(self:pop(), self.player and Engine.enemy or Engine.player)
+			self:donate(self:pop(), self:opponent())
 		else
 			assert(false, "Unhandled micro op type")
 		end

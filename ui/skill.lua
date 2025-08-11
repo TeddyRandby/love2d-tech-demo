@@ -53,7 +53,7 @@ function M.draw(skill, x, y)
 		---@type Move
 		local move = skill
 
-		if Engine.player:doable(move) then
+		if Engine:player():doable(move) then
 			-- Shaders.glow(Engine.time)
 			love.graphics.draw(SkillSpritesheet, SkillBGHL, 0, 0, 0, sx, sy)
 			-- Shaders.reset()

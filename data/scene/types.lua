@@ -12,42 +12,42 @@ local Inputs = {}
 
 ---@return Card[]
 function Inputs.PlayerHand()
-	return Engine.player.hand
+	return Engine:player().hand
 end
 
 ---@return Token[]
 function Inputs.PlayerBag()
-	return Engine.player:bag()
+	return Engine:player():bag()
 end
 
 ---@return Token[]
 function Inputs.PlayerActive()
-	return Engine.player:active()
+	return Engine:player():active()
 end
 
 ---@return Token[]
 function Inputs.PlayerExhausted()
-	return Engine.player:exhausted()
+	return Engine:player():exhausted()
 end
 
 ---@return Card[]
 function Inputs.EnemyHand()
-	return Engine.enemy.hand
+	return Engine:enemy().hand
 end
 
 ---@return Token[]
 function Inputs.EnemyBag()
-	return Engine.enemy:bag()
+	return Engine:enemy():bag()
 end
 
 ---@return Token[]
 function Inputs.EnemyActive()
-	return Engine.enemy:active()
+	return Engine:enemy():active()
 end
 
 ---@return Token[]
 function Inputs.EnemyExhausted()
-	return Engine.enemy:exhausted()
+	return Engine:enemy():exhausted()
 end
 
 ---@param cb? fun(i: integer, card: Card): UserEventHandler
@@ -72,17 +72,18 @@ local EnemyExhausted = Components.bag(-0.41, 0.4, "Enemy", "exhausted", Inputs.E
 local TokenSelector = Components.token_selector(0.5, 0.5)
 
 local PlayerProfile = function()
-	local str = Engine.player.class.type
+  local player = Engine:player()
+	local str = player.class.type
 		.. " -- Lives: "
-		.. Engine.player.lives
+		.. player.lives
 		.. "/"
-		.. Engine.player.class.lives
+		.. player.class.lives
 		.. ". Power: "
-		.. Engine.player.power
+		.. player.power
     .. ". Manapool: "
-    .. Engine.player.mana
+    .. player.mana
     .. ". Gold: "
-    .. Engine.player.gold
+    .. player.gold
 
 	View:text(str, 0.1, 0.01)
 end
@@ -102,7 +103,7 @@ local function EffectsComponent(x, y, cb)
 
 		local total = 0
 
-		for _, effects in pairs(Engine.player.event_handlers) do
+		for _, effects in pairs(Engine:player().event_handlers) do
 			for _, effect in ipairs(effects) do
 				View:move(effect, thisx, thisy, effect)
 
@@ -148,7 +149,7 @@ local function MovesComponent(x, y, cb)
 		local thisy = y + UI.height(11)
 		local total = 0
 
-		for i, move in ipairs(Engine.player.moves) do
+		for i, move in ipairs(Engine:player().moves) do
 			View:move(move, thisx, thisy, move)
 
 			if View:is_hovering(move) then
@@ -233,8 +234,8 @@ return {
 			MovesComponent(0.01, 0.4, function(i, move)
 				return {
 					click = function()
-						if Engine.player:doable(move) then
-							Engine.player:domove(move)
+						if Engine:player():doable(move) then
+							Engine:player():domove(move)
 						end
 					end,
 				}
@@ -249,23 +250,20 @@ return {
 					dragend = function(x, y)
 						-- If we're above the hand play the card
 						local _, cardheight = UI.card.getNormalizedDim()
-						print("CARDHEIGHT", cardheight, UI.realize_y(-cardheight), y)
+
 						if y > UI.realize_y(-cardheight) then
 							return
 						end
 
-						-- Play a random enemy card
-						Engine.enemy:play()
+            Engine:bots_playcard()
 
-						-- Player plays may change the scene.
-						-- This would cause all further plays to early-exit.
-						Engine.player:play(i)
+						Engine:player():play(i)
 					end,
 				}
 			end),
 
 			function()
-				if #Engine.player.hand == 0 then
+				if #Engine:player().hand == 0 then
 					BattleButton()
 				end
 			end,
@@ -332,8 +330,8 @@ return {
 			MovesComponent(0.01, 0.6, function(_, move)
 				return {
 					click = function(x, y)
-						if Engine.player:doable(move) then
-							Engine.player:domove(move)
+						if Engine:player():doable(move) then
+							Engine:player():domove(move)
 						end
 					end,
 				}

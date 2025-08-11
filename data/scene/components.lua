@@ -81,7 +81,7 @@ function M.bag(x, y, prefix, t, f)
 			if #v > 0 then
 				local useful = false
 
-				for _, move in ipairs(Engine.player.moves) do
+				for _, move in ipairs(Engine:player().moves) do
 					if View:is_hovering(move) then
 						if Move.needs(move, v[1]) then
 							useful = true
@@ -244,12 +244,12 @@ function M.move_selector(x, y)
 
 					View:register(v, {
 						click = function()
-							if Engine.player.gold > 0 then
+							if Engine:player().gold > 0 then
 								moves[v] = not moves[v]
 								--TODO: Is this how I want gold and stuff to work?
 								--Shop-abilities are weird then
-								Engine.player.gold = Engine.player.gold - 1
-								Engine.player:learn(v)
+								Engine:player().gold = Engine:player().gold - 1
+								Engine:player():learn(v)
 							end
 						end,
 					})
@@ -301,10 +301,10 @@ function M.move_selector(x, y)
 
 					View:register(v, {
 						click = function()
-							if Engine.player.gold > 0 then
+							if Engine:player().gold > 0 then
 								effects[v] = not effects[v]
-								Engine.player.gold = Engine.player.gold - 1
-								Engine.player:learn(v)
+								Engine:player().gold = Engine:player().gold - 1
+								Engine:player():learn(v)
 							end
 						end,
 					})
@@ -331,7 +331,7 @@ function M.move_selector(x, y)
 			moves = {}
 			effects = {}
 
-			movelist, effectlist = Engine.player:levelup(3)
+			movelist, effectlist = Engine:player():levelup(3)
 
 			for _, v in ipairs(movelist) do
 				moves[v] = false
@@ -380,8 +380,8 @@ function M.token_selector(x, y)
 				tokens = nil
 				tokenlist = nil
 
-				Engine.player:push(chosen)
-				Engine.player:push(not_chosen)
+				Engine:player():push(chosen)
+				Engine:player():push(not_chosen)
 
 				Engine:rewind()
 			end)
@@ -429,7 +429,7 @@ function M.token_selector(x, y)
 		else
 			-- Will get drawn on the next frame
 			tokens = {}
-			tokenlist = Engine.player:pop()
+			tokenlist = Engine:player():pop()
 			for _, v in ipairs(tokenlist) do
 				tokens[v] = false
 			end
@@ -479,9 +479,9 @@ function M.card_selector(x, y)
 					click = function()
 						chosen = a
 
-						table.insert(Engine.player.hand, a)
+            Engine:bots_pickcard()
 
-						table.insert(Engine.enemy.hand, b)
+						table.insert(Engine:player().hand, a)
 
 						-- Unregister handlers for cards when it is drawn.
 						View:register(a)
@@ -503,7 +503,7 @@ function M.card_selector(x, y)
 			drawcard(right, left, thisx + View.normalize_x(0.03) + w, thisx + View.normalize_x(Card.width() * 2 + 0.05))
 		else
 			-- Will get drawn on the next frame
-			cardpool = Engine.player:fish(10)
+			cardpool = Engine:player():fish(10)
 		end
 	end
 end
@@ -513,17 +513,17 @@ end
 function M.enemy(x, y)
 	---@type Component
 	return function()
-		local enemy = Engine.enemy
+		local enemy = Engine:enemy()
 		if enemy then
 			View:text(
 				enemy.class.type
 					.. "("
-					.. Engine.enemy.lives
+					.. enemy.lives
 					.. "/"
-					.. Engine.enemy.class.lives
+					.. enemy.class.lives
 					.. ")"
 					.. ". Power: "
-					.. Engine.enemy.power,
+					.. enemy.power,
 				x,
 				y
 			)

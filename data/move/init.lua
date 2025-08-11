@@ -22,7 +22,7 @@ end
 ---@param t Token
 ---@param s? TokenState
 function M.needs(m, t, s)
-	s = s or Engine.player.token_states[t]
+	s = s or Engine:player().token_states[t]
 
 	if m.cost.state ~= s then
 		return false
