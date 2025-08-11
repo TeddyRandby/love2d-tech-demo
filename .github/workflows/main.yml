@@ -128,7 +128,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
-    needs: [get-info, build-core, auto-test]
+    needs: [get-info, build-core]
     env:
       COLD_CLEAR_FOLDER: ./ColdClear
       OUTPUT_FOLDER: ./build
@@ -211,7 +211,7 @@ jobs:
 
   build-web-compat:
     runs-on: ubuntu-latest
-    needs: [get-info, build-core, auto-test]
+    needs: [get-info, build-core]
     if: github.event_name != 'pull_request'
     env:
       MEMORY_LIMIT: 128000000
@@ -261,7 +261,7 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-    needs: [get-info, build-core, auto-test]
+    needs: [get-info, build-core]
     env:
       COLD_CLEAR_FOLDER: ./ColdClear
       OUTPUT_FOLDER: ./build
@@ -402,10 +402,6 @@ jobs:
                     "name": "Package Name",
                     "value": "${{ needs.get-info.outputs.base-name }}",
                     "inline": True
-                  },
-                  {
-                    "name": "Status",
-                    "value": "**Automatic Test:** ${{ needs.auto-test.result }}\n**Core:** ${{ needs.build-core.result }}\n**Android:** ${{ needs.build-android.result }}\n**Linux:** ${{ needs.build-linux.result }}\n**Web compatible:** ${{ needs.build-web-compat.result }}\n**Windows:** ${{ needs.build-windows.result }}"
                   }
                 ]
               }
