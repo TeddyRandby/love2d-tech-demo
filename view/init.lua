@@ -494,7 +494,7 @@ function M:bag(bag, id, x, y, ox, oy)
 end
 
 ---@param label "moves" | "effects" | "shopeffects" | "shopmoves"
----@param id string
+---@param id unknown
 ---@param x integer
 ---@param y integer
 ---@param ox? integer

@@ -6,4 +6,8 @@ for _, v in ipairs(SceneTypes) do
 	M[v.name] = v
 end
 
+function M.create(type)
+  return table.copy(M[type])
+end
+
 return M

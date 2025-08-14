@@ -37,7 +37,7 @@ function M.table_of(effects)
 	for _, v in ipairs(effects) do
 		local eff = M[v]
 		assert(eff ~= nil, "Missing effect " .. v)
-		M.insert(tmp, eff)
+		M.insert(tmp, table.copy(eff))
 	end
 
 	return tmp

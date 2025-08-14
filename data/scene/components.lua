@@ -68,12 +68,12 @@ function M.bag(x, y, prefix, t, f)
 		local thisy = UI.realize_y(y)
 		local id = prefix .. t
 
-		local pixelsz = UI.realize_x(UI.width(0.75))
+		local pixelsz = UI.realize_x(UI.width(2))
 
 		View:bag(t, id, thisx, thisy, 0, thisy)
 
 		thisx = thisx + UI.realize_x(UI.width(2))
-		thisy = thisy + UI.realize_y(UI.height(2))
+		thisy = thisy + UI.realize_y(UI.height(1))
 
 		for _, ttype in ipairs(Engine.TokenTypes) do
 			local v = grouped[ttype.type] or {}
@@ -382,7 +382,6 @@ function M.token_selector(x, y)
 
 				Engine:player():push(chosen)
 				Engine:player():push(not_chosen)
-
 				Engine:rewind()
 			end)
 
@@ -430,8 +429,15 @@ function M.token_selector(x, y)
 			-- Will get drawn on the next frame
 			tokens = {}
 			tokenlist = Engine:player():pop()
-			for _, v in ipairs(tokenlist) do
-				tokens[v] = false
+
+			if #tokenlist == 0 then
+				Engine:player():push({})
+				Engine:player():push({})
+				Engine:rewind()
+			else
+				for _, v in ipairs(tokenlist) do
+					tokens[v] = false
+				end
 			end
 		end
 	end
@@ -459,7 +465,7 @@ function M.card_selector(x, y)
 			---@param position integer
 			---@param details_position integer
 			local function drawcard(a, b, position, details_position)
-        local _, cardh = UI.card.getRealizedDim()
+				local _, cardh = UI.card.getRealizedDim()
 
 				if View:is_hovering(a) then
 					local hover_r = 0.03
@@ -489,9 +495,9 @@ function M.card_selector(x, y)
 						if table.isempty(cardpool) then
 							cardpool = nil
 							Engine:transition("upgrading")
-            end
+						end
 
-            Engine:transition("settling")
+						Engine:transition("settling")
 					end,
 				})
 			end

@@ -40,8 +40,8 @@ function M.draw(token, x, y, s)
 	-- love.graphics.setCanvas(canvas)
 	-- love.graphics.origin()
 
-	-- love.graphics.setColor(0, 0, 0)
-	-- love.graphics.draw(TokenSpritesheet, TokenBG, 0, sy, 0, sx, sy)
+	love.graphics.setColor(0, 0, 0)
+	love.graphics.draw(TokenSpritesheet, TokenBG, 0, sy, 0, sx, sy)
 
 	love.graphics.setColor(table.unpack(token.primary_color))
 	love.graphics.draw(TokenSpritesheet, TokenBG, 0, 0, 0, sx, sy)

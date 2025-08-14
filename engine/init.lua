@@ -41,7 +41,7 @@ local M = {
 	matchups = {},
 
 	event_history = {},
-	scene = {"main"},
+	scene = { "main" },
 	scene_buffer = {},
 	time = 0,
 }
@@ -95,6 +95,7 @@ end
 
 ---@param scene SceneType
 function M:__exitscene(scene)
+  print("[EXITSCENE]", scene)
 	if scene == "choosing" then
 		-- This will complete any pending micro-ops.
 		-- As we may have yielded in the middle of playing a card
@@ -107,6 +108,7 @@ end
 
 ---@param scene SceneType
 function M:__enterscene(scene)
+  print("[ENTERSCENE]", scene)
 	if scene == "drafting" then
 		self:matchup()
 
@@ -115,6 +117,12 @@ function M:__enterscene(scene)
 			v.lives = v.class.lives
 			v.power = 0
 			v.mana = 0
+      v.actions = 0
+		end
+	elseif scene == "battling" then
+	elseif scene == "round" then
+		for _, v in ipairs(self.players) do
+			v.actions = 5
 		end
 	elseif scene == "gameover" then
 		self.players = {}
@@ -138,17 +146,30 @@ function M:bots_playcard()
 	end
 end
 
+function M:bots_buyskill()
+	for i = 2, #self.players do
+		local bot = self.players[i]
+		if bot.gold > 0 then
+			local skills = table.append(bot:levelup(1))
+			local chosen = table.unpack(table.sample(skills, 1))
+			bot:learn(chosen)
+			bot.gold = bot.gold - 1
+		end
+	end
+end
+
 --- Rewind to the previous scene.
 function M:rewind()
 	local scene = table.pop(self.scene)
 
 	if scene ~= nil then
+    print("REWIND OVER .. ", scene)
 		self:__exitscene(scene)
 	end
 
-  if scene ~= "settling" then
-    self:__enterscene(self:current_scene())
-  end
+	if scene ~= "settling" then
+		self:__enterscene(self:current_scene())
+	end
 end
 
 ---@param scene SceneType
@@ -157,17 +178,18 @@ function M:rewindto(scene)
 		local popped_scene = table.pop(self.scene)
 
 		if popped_scene ~= nil then
+      print("REWINDTO OVER .. ", popped_scene)
 			self:__exitscene(popped_scene)
 		end
 	until self:current_scene() == scene
 
-  self:__enterscene(self:current_scene())
+	self:__enterscene(self:current_scene())
 end
 
 ---@param scene SceneType
 function M:transition(scene)
 	table.insert(self.scene_buffer, scene)
-	self:__enterscene(scene)
+	-- self:__enterscene(scene)
 end
 
 function M:begin_round()
@@ -191,8 +213,10 @@ end
 
 function M:end_round()
 	for i, v in ipairs(self.players) do
-		v:domoves()
+    v:domoves()
+  end
 
+	for i, v in ipairs(self.players) do
 		if v.power < v:opponent().power then
 			v:hit()
 		end
@@ -204,7 +228,6 @@ function M:end_round()
 			if v == self:player() then
 				return Engine:rewindto("main")
 			elseif v == self:enemy() then
-				print("ROUND_OVER")
 				-- Complete all the other battles
 				-- repeat
 				-- 	self:begin_round()
@@ -212,6 +235,8 @@ function M:end_round()
 				-- until not self:battling()
 
 				-- Complete the round without player input
+        -- This rewinds *over* the choose that moves above may leave us in.
+        -- This bad
 				Engine:rewindto("drafting")
 			end
 		end
@@ -297,18 +322,9 @@ function M:update(dt)
 	end
 
 	if #self.scene_buffer > 0 then
-		print("UPDATE SCENE BUFFER")
-		for _, v in ipairs(self.scene_buffer) do
-			print("", v)
-		end
-
 		table.append(self.scene, self.scene_buffer)
-
-		print("TOTAL SCENE STACK")
-		for _, v in ipairs(self.scene) do
-			print("", v)
-		end
 		self.scene_buffer = {}
+    self:__enterscene(self:current_scene())
 	end
 end
 

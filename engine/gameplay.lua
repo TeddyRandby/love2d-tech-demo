@@ -8,10 +8,12 @@ local Token = require("data.token")
 ---@class GameplayData
 ---@field drawn integer
 ---@field power integer
----@field lives integer
----@field maxlives integer
 ---@field mana integer
 ---@field gold integer
+---@field lives integer
+---@field actions integer
+---@field maxlives integer
+---@field maxactions integer
 ---@field TokenTable Token[]
 ---@field CardTable Card[]
 ---@field MoveTable Move[]
@@ -26,6 +28,18 @@ local Token = require("data.token")
 ---@field moves Move[]
 ---@field class Class
 local M = {}
+
+---@return Effect[]
+function M:effects()
+	---@type Effect[]
+	local tmp = {}
+
+	for _, v in pairs(self.event_handlers) do
+		table.append(tmp, v)
+	end
+
+	return tmp
+end
 
 ---@return Token[]
 function M:top()
@@ -43,7 +57,19 @@ end
 
 ---@return Token[]
 function M:peek_into(n, tab)
-	return table.sample(self.token_list, n, tab)
+	local peeked = table.sample(self:bag(), n, tab)
+
+	self.token_list = table.filter(self.token_list, function(t)
+		return not table.find(peeked, function(ot)
+			return ot == t
+		end)
+	end)
+
+	for _, v in ipairs(peeked) do
+		self.token_states[v] = nil
+	end
+
+	return peeked
 end
 
 ---@return Token[]
@@ -63,7 +89,7 @@ function M:pull_into(n, tab)
 end
 
 function M:opponent()
-  return Engine.matchups[self]
+	return Engine.matchups[self]
 end
 
 function M:signature()
@@ -83,9 +109,9 @@ function M:levelup(n)
 		return t
 	end)
 
-  for _, v in ipairs(self.EffectTable) do
-    print(v.type)
-  end
+	for _, v in ipairs(self.EffectTable) do
+		print(v.type)
+	end
 
 	return table.unique_replacement_sample(self.MoveTable, n, {}, self.moves, table.copy),
 		table.unique_replacement_sample(self.EffectTable, n, {}, effects, table.copy)
@@ -268,6 +294,10 @@ end
 
 ---@param move Move
 function M:doable(move)
+	if self.actions <= 0 then
+		return false
+	end
+
 	if type(move.should) ~= "function" and move.should then
 		return Move.cost_is_met(move, self)
 	else
@@ -279,12 +309,13 @@ end
 function M:domove(move)
 	assert(self:doable(move), "Move wasn't doable! " .. move.type)
 
+	self.actions = self.actions - 1
 	if move.cost.type == "gold" then
-    assert(self.gold >= move.cost.amount)
-    self.gold = self.gold - move.cost.amount
+		assert(self.gold >= move.cost.amount)
+		self.gold = self.gold - move.cost.amount
 	elseif move.cost.type == "manapool" then
-    assert(self.mana >= move.cost.amount)
-    self.mana = self.mana - move.cost.amount
+		assert(self.mana >= move.cost.amount)
+		self.mana = self.mana - move.cost.amount
 	else
 		local could_pay_with = Move.matches_cost(move, self.token_list, self.token_states)
 		assert(#could_pay_with >= move.cost.amount)
@@ -302,6 +333,7 @@ function M:domove(move)
 		end
 	end
 
+  print("[DOMOVE]", self == Engine:player(), move.type)
 	move.effect(self)
 
 	-- Log the move event and fire off the handlers.
@@ -365,15 +397,14 @@ function M:playcard(card)
 	-- assert(#self.token_stack == 0, "Tokenstack was " .. #self.token_stack .. " instead of empty when " .. card.type .. " was played.")
 	-- Push an empty table onto the play stack for each card operation we intend to do.
 	for _ = 1, #card.ops do
-		self:push({})
+    table.insert(self.token_stack, 1, {})
 	end
 
 	local token_microops = table.flatmap(card.ops, function(c)
 		return c.microops
 	end)
 
-  table.append(token_microops, self.token_microops)
-  self.token_microops = token_microops
+	table.append(self.token_microops, token_microops)
 
 	-- Log this card as played in the event log.
 	Engine:log_cardevent(card, self)
@@ -399,11 +430,7 @@ function M:play(n)
 end
 
 function M:__play()
-	if table.isempty(self.token_microops) then
-		return
-	end
-
-	repeat
+	while (not table.isempty(self.token_microops)) and (#Engine.scene_buffer == 0) do
 		local microop = table.shift(self.token_microops)
 		assert(microop ~= nil)
 
@@ -437,6 +464,7 @@ function M:__play()
 			self:push(tmp)
 		elseif t == "choose" then
 			self:choose()
+      print("AFTERCHOOSE: " .. #Engine.scene_buffer)
 		elseif t == "draft" then
 			self:draft(self:pop())
 		elseif t == "discard" then
@@ -446,13 +474,9 @@ function M:__play()
 		else
 			assert(false, "Unhandled micro op type")
 		end
-
-	-- Repeat until we run out of micro ops, or the scene changed.
-	until table.isempty(self.token_microops) or #Engine.scene_buffer > 0
-
-  if not table.isempty(self.token_microops) then
-    print("sTOPPED EXECUTION: ", table.peek(Engine.scene_buffer))
   end
+
+  print("ENDING __PLAY: " .. Engine.time)
 end
 
 ---@generic T: { type: string }
@@ -488,6 +512,8 @@ function M.create(class, choose)
 		gold = 0,
 		power = 0,
 		lives = 0,
+		actions = 0,
+		maxactions = 5,
 		drawn = class.draw,
 		maxlives = class.lives,
 		hand = {},

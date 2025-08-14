@@ -194,7 +194,8 @@ function table.take(t, n, f)
 	local tmp = {}
 
 	for _ = 1, n do
-		table.insert(tmp, f(t))
+    local val = f(t)
+		table.insert(tmp, val)
 	end
 
 	return tmp

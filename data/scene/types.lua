@@ -25,6 +25,26 @@ function Inputs.PlayerActive()
 	return Engine:player():active()
 end
 
+---@return Move[]
+function Inputs.PlayerEffects()
+	return Engine:player():effects()
+end
+
+---@return Move[]
+function Inputs.EnemyEffects()
+	return Engine:enemy():effects()
+end
+
+---@return Move[]
+function Inputs.PlayerMoves()
+	return Engine:player().moves
+end
+
+---@return Move[]
+function Inputs.EnemyMoves()
+	return Engine:enemy().moves
+end
+
 ---@return Token[]
 function Inputs.PlayerExhausted()
 	return Engine:player():exhausted()
@@ -84,47 +104,51 @@ local PlayerProfile = function()
 		.. player.mana
 		.. ". Gold: "
 		.. player.gold
+		.. ". Actions: "
+		.. player.actions
 
-	View:text(str, 0.1, 0.01)
+	View:text(str, 0.01, 0.01)
 end
 
 local EnemyProfile = Components.enemy(-0.2, 0.01)
 
 local NormalMoveWidth, NormalMoveHeight = UI.skill.getNormalizedDim()
 
-local function EffectsComponent(x, y, cb)
+---@param x number
+---@param y number
+---@param get_effects fun(): Effect[]
+---@param cb? fun(i: integer, move: Move): table<UserEvent, function>
+local function EffectsComponent(x, y, get_effects, cb)
 	return function()
 		local detail = nil
 
-		View:movelist("effects", "Playereffects", x, y, x, 1)
+		View:movelist("effects", get_effects, x, y, x, 1)
 
 		local thisx = x + UI.width(5)
 		local thisy = y + UI.height(11)
 
 		local total = 0
 
-		for _, effects in pairs(Engine:player().event_handlers) do
-			for _, effect in ipairs(effects) do
-				View:move(effect, thisx, thisy, effect)
+		for _, effect in ipairs(get_effects()) do
+			View:move(effect, thisx, thisy, effect)
 
-				if View:is_hovering(effect) then
-					local detailx = thisx + NormalMoveWidth + UI.width(4)
-					detail = function()
-						View:details(effect.desc, tostring(effect), detailx, thisy)
-					end
+			if View:is_hovering(effect) then
+				local detailx = thisx + NormalMoveWidth + UI.width(4)
+				detail = function()
+					View:details(effect.desc, tostring(effect), detailx, thisy)
 				end
-
-				-- if cb then
-				-- 	View:register(effect, cb(i, effect))
-				-- end
-
-				thisx = thisx + NormalMoveWidth + UI.width(2)
-				total = total + 1
 			end
+
+			-- if cb then
+			-- 	View:register(effect, cb(i, effect))
+			-- end
+
+			thisx = thisx + NormalMoveWidth + UI.width(2)
+			total = total + 1
 		end
 
 		while total < 5 do
-			View:move(nil, thisx, thisy, "emptyeffect" .. total)
+			View:move(nil, thisx, thisy, "emptyeffect" .. tostring(get_effects) .. total)
 
 			thisx = thisx + NormalMoveWidth + UI.width(2)
 			total = total + 1
@@ -138,18 +162,19 @@ end
 
 ---@param x number
 ---@param y number
+---@param get_moves fun(): Move[]
 ---@param cb? fun(i: integer, move: Move): table<UserEvent, function>
-local function MovesComponent(x, y, cb)
+local function MovesComponent(x, y, get_moves, cb)
 	return function()
 		local detail = nil
 
-		View:movelist("moves", "Playermoves", x, y, x, 1)
+		View:movelist("moves", get_moves, x, y, x, 1)
 
 		local thisx = x + UI.width(5)
 		local thisy = y + UI.height(11)
 		local total = 0
 
-		for i, move in ipairs(Engine:player().moves) do
+		for i, move in ipairs(get_moves()) do
 			View:move(move, thisx, thisy, move)
 
 			if View:is_hovering(move) then
@@ -168,7 +193,7 @@ local function MovesComponent(x, y, cb)
 		end
 
 		while total < 5 do
-			View:move(nil, thisx, thisy, "emptymove" .. total)
+			View:move(nil, thisx, thisy, "emptymove" .. tostring(get_moves) .. total)
 
 			thisx = thisx + NormalMoveWidth + UI.width(2)
 			total = total + 1
@@ -182,7 +207,7 @@ end
 
 ---@param cb? fun(i: integer, move: Move): table<UserEvent, function>
 local function PlayerMoves(cb)
-	return MovesComponent(0.1, 0.2, cb)
+	return MovesComponent(0.1, 0.2, Inputs.PlayerMoves, cb)
 end
 
 local BattleButton = Components.button(0.4, -Card.height(), 0.1, 0.1, "Battle", function()
@@ -204,11 +229,11 @@ return {
 				end)
 
 				if not still_settling then
-          print("SETTLED")
+					print("SETTLED")
 					Engine:rewind()
 				else
 					local pos = View:pos(still_settling)
-          print("SETTLING", still_settling.id, pos.x, pos.y, pos.r, pos.scale)
+					print("SETTLING", still_settling.id, pos.x, pos.y, pos.r, pos.scale)
 				end
 			end,
 		},
@@ -256,8 +281,8 @@ return {
 
 			History,
 
-			EffectsComponent(0.01, 0.6),
-			MovesComponent(0.01, 0.4, function(i, move)
+			EffectsComponent(0.01, 0.6, Inputs.PlayerEffects),
+			MovesComponent(0.01, 0.4, Inputs.PlayerMoves, function(i, move)
 				return {
 					click = function()
 						if Engine:player():doable(move) then
@@ -282,6 +307,8 @@ return {
 						end
 
 						Engine:bots_playcard()
+
+						Engine:bots_buyskill()
 
 						Engine:player():play(i)
 					end,
@@ -317,7 +344,11 @@ return {
 
 			History,
 
-			MovesComponent(0.01, 0.6),
+			MovesComponent(0.01, 0.5, Inputs.PlayerMoves),
+			EffectsComponent(0.01, 0.7, Inputs.PlayerEffects),
+
+			MovesComponent(-0.01 - UI.skillbox.getNormalizedDim(), 0.5, Inputs.EnemyMoves),
+			EffectsComponent(-0.01 - UI.skillbox.getNormalizedDim(), 0.7, Inputs.EnemyEffects),
 
 			PlayerProfile,
 			PlayerBag,
@@ -351,7 +382,8 @@ return {
 			PlayerBag,
 			PlayerActive,
 			PlayerExhausted,
-			MovesComponent(0.01, 0.6, function(_, move)
+
+			MovesComponent(0.01, 0.5, Inputs.PlayerMoves, function(_, move)
 				return {
 					click = function(x, y)
 						if Engine:player():doable(move) then
@@ -360,6 +392,10 @@ return {
 					end,
 				}
 			end),
+			EffectsComponent(0.01, 0.7, Inputs.PlayerEffects),
+
+			MovesComponent(-0.01 - UI.skillbox.getNormalizedDim(), 0.5, Inputs.EnemyMoves),
+			EffectsComponent(-0.01 - UI.skillbox.getNormalizedDim(), 0.7, Inputs.EnemyEffects),
 
 			Components.button(
 				-0.11 - NormalMoveWidth,
