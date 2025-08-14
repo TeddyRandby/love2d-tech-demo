@@ -335,3 +335,15 @@ function table.merge_over(below, above)
 
 	return tmp
 end
+
+---@generic T
+---@param a T[]
+---@param b T[]
+---@return T[]
+function table.append(a, b)
+	for _, v in ipairs(b) do
+		table.insert(a, v)
+	end
+
+	return a
+end

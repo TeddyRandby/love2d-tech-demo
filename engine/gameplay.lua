@@ -362,15 +362,18 @@ end
 
 ---@param card Card
 function M:playcard(card)
-	assert(#self.token_stack == 0, "Tokenstack was not empty when " .. card.type .. " was played.")
+	-- assert(#self.token_stack == 0, "Tokenstack was " .. #self.token_stack .. " instead of empty when " .. card.type .. " was played.")
 	-- Push an empty table onto the play stack for each card operation we intend to do.
 	for _ = 1, #card.ops do
 		self:push({})
 	end
 
-	self.token_microops = table.flatmap(card.ops, function(c)
+	local token_microops = table.flatmap(card.ops, function(c)
 		return c.microops
 	end)
+
+  table.append(token_microops, self.token_microops)
+  self.token_microops = token_microops
 
 	-- Log this card as played in the event log.
 	Engine:log_cardevent(card, self)
@@ -445,7 +448,11 @@ function M:__play()
 		end
 
 	-- Repeat until we run out of micro ops, or the scene changed.
-	until table.isempty(self.token_microops) or Engine:current_scene() ~= "upgrading"
+	until table.isempty(self.token_microops) or #Engine.scene_buffer > 0
+
+  if not table.isempty(self.token_microops) then
+    print("sTOPPED EXECUTION: ", table.peek(Engine.scene_buffer))
+  end
 end
 
 ---@generic T: { type: string }

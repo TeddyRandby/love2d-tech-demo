@@ -208,12 +208,12 @@ local function normalize_dim(n, max)
 		return n
 	end
 
-	if n >= 0 then
-		return math.floor(n * max)
+	if n < -1 then
+		return n
 	end
 
-	if n < -1 then
-		return max + n
+	if n >= 0 then
+		return math.floor(n * max)
 	end
 
 	return max * (1 + n)
@@ -356,21 +356,42 @@ end
 function M:push_renderable(type, target, id, contain_f, x, y, r, ox, oy, time, delay, scale)
 	local existing = self.command_target_positions[id]
 
+	scale = scale or 1
+	time = time or 0.2
+	delay = delay or 0
+	r = r or 0
+
 	x, y = M.normalize_xy(x, y)
 
 	if not existing then
-		existing =
-			{ x = ox and M.normalize_x(ox) or x, y = oy and M.normalize_y(oy) or y, r = r or 0, scale = scale or 1 }
+		existing = { x = ox and M.normalize_x(ox) or x, y = oy and M.normalize_y(oy) or y, r = r or 0, scale = scale }
 		self.command_target_positions[id] = existing
 	else
 		-- This version fixes card bug but creates slow-feeling ui
 		if not existing.tween then
 			if existing.x ~= x or existing.y ~= y or existing.r ~= r or existing.scale ~= scale then
+				-- if existing.x ~= x then
+				-- 	print("[TWEENX]", existing.x, x)
+				-- end
+				--
+				-- if existing.y ~= y then
+				-- 	print("[TWEENY]", existing.y, y)
+				-- end
+				--
+				-- if existing.r ~= r then
+				-- 	print("[TWEENR]", existing.r, r)
+				-- end
+				--
+				-- if existing.scale ~= scale then
+				-- 	print("[TWEENS]", existing.scale, scale)
+				-- end
+
 				existing.tween = flux
-					.to(existing, time or 0.2, { x = x, y = y, r = r or 0, scale = scale or 1 })
+					.to(existing, time, { x = x, y = y, r = r, scale = scale })
 					:ease("sineinout") -- Experiement with the easing function
-					:delay(delay or 0)
+					:delay(delay)
 					:oncomplete(function()
+						print("[COMPLETETWEEN]", id, x, y, r, scale)
 						existing.tween = nil
 					end)
 			end
@@ -399,9 +420,10 @@ end
 ---@param ox? integer
 ---@param oy? integer
 ---@param t? number
-function M:card(card, x, y, r, ox, oy, t)
+---@param delay? number
+function M:card(card, x, y, r, ox, oy, t, delay)
 	-- Is there a better way to do this, with meta tables?
-	self:push_renderable("card", card, card, card_contains, x, y, r, ox, oy, t)
+	self:push_renderable("card", card, card, card_contains, x, y, r, ox, oy, t, delay)
 end
 
 ---@param board_slot RenderCommandBoardSlotTarget

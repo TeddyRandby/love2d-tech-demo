@@ -206,7 +206,7 @@ return {
 	},
 	{
 		type = "exhaust_corruption_activate_skeleton",
-		desc = "Exhaust a corruption to activate a skeleton.",
+		desc = "When you exhaust a corruption, activate a skeleton.",
     active = true,
     cause = "exhaust",
 		icon = { "token", "exhaust" },

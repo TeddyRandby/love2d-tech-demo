@@ -90,6 +90,7 @@ local M = {
 			draft_corruption_draft_skeleton = 1,
 		}),
 		moves = {
+      "refine_twice",
 			table.unpack(default_moves),
 		},
 		effects = {
@@ -121,6 +122,7 @@ local M = {
 			draft_customer_draft_coin = 1,
 		}),
 		moves = {
+      "shop_recruit",
 			table.unpack(default_moves),
 		},
 		effects = {
@@ -150,6 +152,7 @@ local M = {
 			parrot_draft_steal = 1,
 		}),
 		moves = {
+      "opponents_draft_bomb",
 			table.unpack(default_moves),
 		},
 		effects = {

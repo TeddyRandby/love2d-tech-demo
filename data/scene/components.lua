@@ -451,11 +451,6 @@ function M.card_selector(x, y)
 
 			local left, right = cardpool[1], cardpool[2]
 
-			if chosen and View:post(chosen) and View:post(chosen).tween then
-				return
-			end
-			chosen = nil
-
 			assert(left ~= nil)
 			assert(right ~= nil)
 
@@ -464,22 +459,22 @@ function M.card_selector(x, y)
 			---@param position integer
 			---@param details_position integer
 			local function drawcard(a, b, position, details_position)
+        local _, cardh = UI.card.getRealizedDim()
+
 				if View:is_hovering(a) then
 					local hover_r = 0.03
 					if love.mouse.getX() - position < View.normalize_x(Card.width()) / 2 then
 						hover_r = -hover_r
 					end
-					View:card(a, position, y, hover_r, position, 0, 0.5)
+					View:card(a, position, y, hover_r, position, -cardh)
 					View:details(Card.describe_long(a), tostring(a) .. "selector", details_position, y)
 				else
-					View:card(a, position, y, nil, position, 0, 0.5)
+					View:card(a, position, y, nil, position, -cardh, 0.5)
 				end
 
 				View:register(a, {
 					click = function()
-						chosen = a
-
-            Engine:bots_pickcard()
+						Engine:bots_pickcard()
 
 						table.insert(Engine:player().hand, a)
 
@@ -494,7 +489,9 @@ function M.card_selector(x, y)
 						if table.isempty(cardpool) then
 							cardpool = nil
 							Engine:transition("upgrading")
-						end
+            end
+
+            Engine:transition("settling")
 					end,
 				})
 			end
@@ -516,14 +513,7 @@ function M.enemy(x, y)
 		local enemy = Engine:enemy()
 		if enemy then
 			View:text(
-				enemy.class.type
-					.. "("
-					.. enemy.lives
-					.. "/"
-					.. enemy.class.lives
-					.. ")"
-					.. ". Power: "
-					.. enemy.power,
+				enemy.class.type .. "(" .. enemy.lives .. "/" .. enemy.class.lives .. ")" .. ". Power: " .. enemy.power,
 				x,
 				y
 			)

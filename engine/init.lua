@@ -14,6 +14,7 @@ local Scene = require("data.scene")
 
 ---@class Engine
 ---@field scene SceneType[]
+---@field scene_buffer SceneType[]
 ---@field rng love.RandomGenerator
 ---@field TokenTypes Token[]
 ---@field CardTypes Card[]
@@ -40,7 +41,8 @@ local M = {
 	matchups = {},
 
 	event_history = {},
-	scene = {},
+	scene = {"main"},
+	scene_buffer = {},
 	time = 0,
 }
 
@@ -91,9 +93,20 @@ function M:current_scene()
 	return table.peek(self.scene)
 end
 
-function M:__enterscene()
-	local scene = self:current_scene()
+---@param scene SceneType
+function M:__exitscene(scene)
+	if scene == "choosing" then
+		-- This will complete any pending micro-ops.
+		-- As we may have yielded in the middle of playing a card
+		-- (For example, to choose a token as an effect of playing a card)
+		for _, v in ipairs(self.players) do
+			v:__play()
+		end
+	end
+end
 
+---@param scene SceneType
+function M:__enterscene(scene)
 	if scene == "drafting" then
 		self:matchup()
 
@@ -102,13 +115,6 @@ function M:__enterscene()
 			v.lives = v.class.lives
 			v.power = 0
 			v.mana = 0
-		end
-	elseif scene == "upgrading" then
-		-- This will complete any pending micro-ops.
-		-- As we may have yielded in the middle of playing a card
-		-- (For example, to choose a token as an effect of playing a card)
-		for _, v in ipairs(self.players) do
-			v:__play()
 		end
 	elseif scene == "gameover" then
 		self.players = {}
@@ -134,14 +140,34 @@ end
 
 --- Rewind to the previous scene.
 function M:rewind()
-	table.pop(self.scene)
-	self:__enterscene()
+	local scene = table.pop(self.scene)
+
+	if scene ~= nil then
+		self:__exitscene(scene)
+	end
+
+  if scene ~= "settling" then
+    self:__enterscene(self:current_scene())
+  end
+end
+
+---@param scene SceneType
+function M:rewindto(scene)
+	repeat
+		local popped_scene = table.pop(self.scene)
+
+		if popped_scene ~= nil then
+			self:__exitscene(popped_scene)
+		end
+	until self:current_scene() == scene
+
+  self:__enterscene(self:current_scene())
 end
 
 ---@param scene SceneType
 function M:transition(scene)
-	table.insert(self.scene, scene)
-	self:__enterscene()
+	table.insert(self.scene_buffer, scene)
+	self:__enterscene(scene)
 end
 
 function M:begin_round()
@@ -176,8 +202,9 @@ function M:end_round()
 		if v.lives <= 0 then
 			-- A little scuffed
 			if v == self:player() then
-				return Engine:transition("gameover")
+				return Engine:rewindto("main")
 			elseif v == self:enemy() then
+				print("ROUND_OVER")
 				-- Complete all the other battles
 				-- repeat
 				-- 	self:begin_round()
@@ -185,7 +212,7 @@ function M:end_round()
 				-- until not self:battling()
 
 				-- Complete the round without player input
-				Engine:transition("drafting")
+				Engine:rewindto("drafting")
 			end
 		end
 	end
@@ -252,21 +279,36 @@ end
 
 function M:load()
 	self.rng = love.math.newRandomGenerator(os.clock())
-	self:transition("main")
 	return self
 end
 
 ---@param dt number
 function M:update(dt)
 	self.time = self.time + dt
+
 	local scene_type = table.peek(self.scene)
 
 	---@type Scene
 	local scene = Scene[scene_type]
-	assert(scene ~= nil)
+	assert(scene ~= nil, "No scene: " .. scene_type)
 
 	for _, component in ipairs(scene.layout) do
 		component()
+	end
+
+	if #self.scene_buffer > 0 then
+		print("UPDATE SCENE BUFFER")
+		for _, v in ipairs(self.scene_buffer) do
+			print("", v)
+		end
+
+		table.append(self.scene, self.scene_buffer)
+
+		print("TOTAL SCENE STACK")
+		for _, v in ipairs(self.scene) do
+			print("", v)
+		end
+		self.scene_buffer = {}
 	end
 end
 

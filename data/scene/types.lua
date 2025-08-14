@@ -1,4 +1,4 @@
----@alias SceneType "main" | "drafting" | "upgrading" | "battling" | "choosing" | "gameover" | "round"
+---@alias SceneType "main" | "drafting" | "upgrading" | "battling" | "choosing" | "gameover" | "round" | "settling"
 
 ---@class Scene
 ---@field name SceneType
@@ -194,6 +194,26 @@ local History = Components.history(0.01, 0.1)
 ---@type Scene[]
 return {
 	{
+		name = "settling",
+		layout = {
+			function()
+				View.commands = View.last_frame_commands
+
+				local still_settling = table.find(View.commands, function(c)
+					return View:pos(c).tween ~= nil
+				end)
+
+				if not still_settling then
+          print("SETTLED")
+					Engine:rewind()
+				else
+					local pos = View:pos(still_settling)
+          print("SETTLING", still_settling.id, pos.x, pos.y, pos.r, pos.scale)
+				end
+			end,
+		},
+	},
+	{
 		name = "main",
 		layout = {
 			function()
@@ -312,9 +332,7 @@ return {
 				"Draw",
 				function()
 					Engine:begin_round()
-					if Engine:current_scene() == "battling" then
-						Engine:transition("round")
-					end
+					Engine:transition("round")
 				end
 			),
 		},
@@ -353,7 +371,7 @@ return {
 					Engine:end_round()
 
 					if Engine:current_scene() == "round" then
-						Engine:transition("battling")
+						Engine:rewind()
 					end
 				end
 			),
