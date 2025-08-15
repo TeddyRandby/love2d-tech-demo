@@ -464,7 +464,6 @@ function M:__play()
 			self:push(tmp)
 		elseif t == "choose" then
 			self:choose()
-      print("AFTERCHOOSE: " .. #Engine.scene_buffer)
 		elseif t == "draft" then
 			self:draft(self:pop())
 		elseif t == "discard" then
@@ -475,8 +474,6 @@ function M:__play()
 			assert(false, "Unhandled micro op type")
 		end
   end
-
-  print("ENDING __PLAY: " .. Engine.time)
 end
 
 ---@generic T: { type: string }
