@@ -40,6 +40,8 @@ local M = {
 	players = {},
 	matchups = {},
 
+	onsettle_cb = nil,
+
 	event_history = {},
 	scene = { "main" },
 	scene_buffer = {},
@@ -47,6 +49,15 @@ local M = {
 }
 
 local Gameplay = require("engine.gameplay")
+
+---@param cb? function
+function M:onsettle(cb)
+	if cb then
+		self.onsettle_cb = cb
+	elseif self.onsettle_cb then
+		self:onsettle_cb()
+	end
+end
 
 ---@return GameplayData
 function M:player()
@@ -95,7 +106,7 @@ end
 
 ---@param scene SceneType
 function M:__exitscene(scene)
-  print("[EXITSCENE]", scene)
+	print("[EXITSCENE]", scene)
 	if scene == "choosing" then
 		-- This will complete any pending micro-ops.
 		-- As we may have yielded in the middle of playing a card
@@ -108,7 +119,7 @@ end
 
 ---@param scene SceneType
 function M:__enterscene(scene)
-  print("[ENTERSCENE]", scene)
+	print("[ENTERSCENE]", scene)
 	if scene == "drafting" then
 		self:matchup()
 
@@ -117,13 +128,16 @@ function M:__enterscene(scene)
 			v.lives = v.class.lives
 			v.power = 0
 			v.mana = 0
-      v.actions = 0
+			v.actions = 0
 		end
 	elseif scene == "battling" then
-	elseif scene == "round" then
-		for _, v in ipairs(self.players) do
-			v.actions = 5
+		for i = 2, #self.players do
+			local bot = self.players[i]
+			table.sort(bot.hand, function(a, b)
+				return a.priority + b.priority <= 0
+			end)
 		end
+	elseif scene == "round" then
 	elseif scene == "gameover" then
 		self.players = {}
 		self.matchups = {}
@@ -163,7 +177,7 @@ function M:rewind()
 	local scene = table.pop(self.scene)
 
 	if scene ~= nil then
-    print("REWIND OVER .. ", scene)
+		print("REWIND OVER .. ", scene)
 		self:__exitscene(scene)
 	end
 
@@ -178,7 +192,7 @@ function M:rewindto(scene)
 		local popped_scene = table.pop(self.scene)
 
 		if popped_scene ~= nil then
-      print("REWINDTO OVER .. ", popped_scene)
+			print("REWINDTO OVER .. ", popped_scene)
 			self:__exitscene(popped_scene)
 		end
 	until self:current_scene() == scene
@@ -212,9 +226,13 @@ function M:battling()
 end
 
 function M:end_round()
-	for i, v in ipairs(self.players) do
-    v:domoves()
+  for _, v in ipairs(self.players) do
+    v.actions = 5
   end
+
+	for i, v in ipairs(self.players) do
+		v:domoves()
+	end
 
 	for i, v in ipairs(self.players) do
 		if v.power < v:opponent().power then
@@ -235,8 +253,8 @@ function M:end_round()
 				-- until not self:battling()
 
 				-- Complete the round without player input
-        -- This rewinds *over* the choose that moves above may leave us in.
-        -- This bad
+				-- This rewinds *over* the choose that moves above may leave us in.
+				-- This bad
 				Engine:rewindto("drafting")
 			end
 		end
@@ -324,7 +342,7 @@ function M:update(dt)
 	if #self.scene_buffer > 0 then
 		table.append(self.scene, self.scene_buffer)
 		self.scene_buffer = {}
-    self:__enterscene(self:current_scene())
+		self:__enterscene(self:current_scene())
 	end
 end
 

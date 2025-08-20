@@ -7,7 +7,7 @@
 ---@field token_table TokenDropTable
 ---@field card_table CardDropTable
 ---@field move_table MoveDropTable
----@field token_weights table<TokenType, integer>
+---@field biases table<TokenType, TokenWeightor>
 ---@field effect_table EffectDropTable
 ---@field signature TokenType
 ---@field moves MoveType[]
@@ -70,10 +70,9 @@ local M = {
 		signature = "skeleton",
 		draw = 3,
 		lives = 3,
-		token_weights = {
-			skeleton = 3,
-			corruption = 1,
-			bomb = 0,
+		biases = {
+			skeleton = 0.5,
+			corruption = 0.2,
 		},
 		token_table = table.merge_over(default_token_table, {
 			skeleton = 3,
@@ -102,10 +101,8 @@ local M = {
 		signature = "customer",
 		draw = 3,
 		lives = 3,
-		token_weights = {
-			customer = 3,
-			corruption = 0,
-			bomb = 0,
+		biases = {
+			customer = 0.5,
 		},
 		token_table = table.merge_over(default_token_table, {
 			customer = 3,
@@ -134,9 +131,8 @@ local M = {
 		signature = "parrot",
 		draw = 3,
 		lives = 3,
-		token_weights = {
-			parrot = 3,
-			corruption = 0,
+		biases = {
+			parrot = 0.5,
 		},
 		token_table = table.merge_over(default_token_table, {
 			parrot = 3,
@@ -164,10 +160,8 @@ local M = {
 		signature = "ooze",
 		draw = 3,
 		lives = 3,
-		token_weights = {
-			ooze = 3,
-			bomb = 0,
-			corruption = 0,
+		biases = {
+			ooze = 0.5,
 		},
 		token_table = table.merge_over(default_token_table, {
 			ooze = 4,

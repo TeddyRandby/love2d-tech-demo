@@ -4,7 +4,6 @@ local M = {}
 
 local Card = require("data.card")
 local Move = require("data.move")
-local Token = require("data.token")
 
 ---@param x number
 ---@param y number
@@ -51,7 +50,7 @@ function M.history(x, y)
 
       local _, at_all = View:is_hovering(event)
       if at_all then
-        local text = event.truetype .. " by " .. event.owner.class.type .. ":\n" .. event.type
+        local text = event.owner.class.type .. " " .. event.type .. " " ..  event.target.type
         View:details(text, text, thisx, thisy + 0.1)
       end
 
@@ -234,8 +233,8 @@ function M.move_selector(x, y)
       local total = 0
 
       for v, is_chosen in pairs(moves) do
+        total = total + 1
         if not is_chosen then
-          total = total + 1
           View:move(v, thisx, thisy, v)
 
           local _, at_all = View:is_hovering(v)
@@ -291,8 +290,8 @@ function M.move_selector(x, y)
       local total = 0
 
       for v, is_chosen in pairs(effects) do
+        total = total + 1
         if not is_chosen then
-          total = total + 1
           ---@diagnostic disable-next-line: param-type-mismatch
           View:move(v, thisx, thisy, v)
 
@@ -322,7 +321,6 @@ function M.move_selector(x, y)
         thisx = thisx + movew + pad
       end
 
-      local total = #effectlist
       while total < 5 do
         View:move(nil, thisx, thisy, "emptyshopeffect" .. total)
 
@@ -456,7 +454,6 @@ end
 ---@param y number
 function M.card_selector(x, y)
   local cardpool = nil
-  local chosen = nil
 
   ---@type Component
   return function()

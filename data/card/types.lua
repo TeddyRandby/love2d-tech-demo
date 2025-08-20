@@ -4,6 +4,7 @@
 ---@class Card
 ---@field type CardType
 ---@field ops ActionOp[]
+---@field priority integer
 
 local Actions = require("data.card.actions")
 
@@ -14,12 +15,14 @@ return {
 		ops = {
 			Actions.discover(3),
 		},
+    priority = 1,
 	},
 	{
 		type = "steal",
 		ops = {
 			Actions.steal(2),
 		},
+    priority = -1,
 	},
   {
     type = "sacrifice",
@@ -27,18 +30,21 @@ return {
       Actions.draft_signature(1),
       Actions.draft_corruption(1),
     },
+    priority = 1,
   },
 	{
 		type = "refine",
 		ops = {
 			Actions.refine(3),
 		},
+    priority = -1,
 	},
 	{
 		type = "opponent_refine",
 		ops = {
 			Actions.opponent_refine(3),
 		},
+    priority = -1,
 	},
 	{
 		type = "refine_two",
@@ -46,6 +52,7 @@ return {
 			Actions.refine(3),
 			Actions.refine(3),
 		},
+    priority = -1,
 	},
 	{
 		type = "pillage",
@@ -53,6 +60,7 @@ return {
 			Actions.loot(1, 1),
 			Actions.draft_coin(1),
 		},
+    priority = 0,
 	},
 	{
 		type = "bargain",
@@ -60,6 +68,7 @@ return {
 			Actions.draft_coin(1),
 			Actions.draft_corruption(1),
 		},
+    priority = 1,
 	},
 	{
 		type = "meditate",
@@ -67,6 +76,7 @@ return {
 			Actions.dig_mana(6),
 			Actions.draft_corruption(1),
 		},
+    priority = 1,
 	},
 	{
 		type = "recruit",
@@ -74,5 +84,6 @@ return {
 			Actions.dig_minion(3),
 			Actions.draft_corruption(1),
 		},
+    priority = 1,
 	},
 }

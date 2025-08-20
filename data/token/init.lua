@@ -35,7 +35,7 @@ end
 ---@param token Token
 function M.isMinion(token)
 	local t = token.type
-	return not (t == "coin" or t == "corruption" or t == "mana")
+	return not (t == "coin" or t == "corruption" or t == "mana" or t == "bomb")
 end
 
 ---@param t TokenType
